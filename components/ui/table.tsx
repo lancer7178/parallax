@@ -42,7 +42,8 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
   return (
     <th
       className={cn(
-        'h-10 px-4 text-left align-middle text-xs font-medium tracking-wide text-muted-foreground uppercase whitespace-nowrap',
+        // px-5 keeps table columns flush with the enclosing card's p-5.
+        'h-11 px-5 text-left align-middle text-xs font-medium tracking-wide text-muted-foreground uppercase whitespace-nowrap',
         className
       )}
       {...props}
@@ -52,7 +53,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
 
 function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
   return (
-    <td className={cn('px-4 py-3 align-middle', className)} {...props} />
+    <td className={cn('px-5 py-3 align-middle', className)} {...props} />
   )
 }
 

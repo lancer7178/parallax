@@ -18,60 +18,93 @@ export type NavItem = {
   matchNested?: boolean
 }
 
+export type NavGroup = {
+  label: string
+  items: NavItem[]
+}
+
 const STAFF: Role[] = ['ADMIN', 'DEVELOPER', 'DESIGNER']
 
-export const NAV_ITEMS: NavItem[] = [
+const NAV_GROUPS: NavGroup[] = [
   {
-    href: '/dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboardIcon,
-    roles: STAFF,
+    label: 'Delivery',
+    items: [
+      {
+        href: '/dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboardIcon,
+        roles: STAFF,
+      },
+      {
+        href: '/portal',
+        label: 'Overview',
+        icon: LayoutDashboardIcon,
+        roles: ['CLIENT'],
+        matchNested: true,
+      },
+      {
+        href: '/projects',
+        label: 'Projects',
+        icon: BriefcaseIcon,
+        roles: STAFF,
+        matchNested: true,
+      },
+      {
+        href: '/tasks',
+        label: 'Tasks',
+        icon: KanbanSquareIcon,
+        roles: STAFF,
+      },
+    ],
   },
   {
-    href: '/portal',
-    label: 'Overview',
-    icon: LayoutDashboardIcon,
-    roles: ['CLIENT'],
-    matchNested: true,
-  },
-  {
-    href: '/projects',
-    label: 'Projects',
-    icon: BriefcaseIcon,
-    roles: STAFF,
-    matchNested: true,
-  },
-  {
-    href: '/tasks',
-    label: 'Tasks',
-    icon: KanbanSquareIcon,
-    roles: STAFF,
-  },
-  {
-    href: '/invoices',
-    label: 'Invoices',
-    icon: ReceiptIcon,
-    roles: ['ADMIN', 'CLIENT'],
-  },
-  {
-    href: '/clients',
-    label: 'Clients',
-    icon: BuildingIcon,
-    roles: ['ADMIN'],
-  },
-  {
-    href: '/team',
-    label: 'Team',
-    icon: UsersIcon,
-    roles: ['ADMIN'],
+    label: 'Business',
+    items: [
+      {
+        href: '/invoices',
+        label: 'Invoices',
+        icon: ReceiptIcon,
+        roles: ['ADMIN', 'CLIENT'],
+      },
+      {
+        href: '/clients',
+        label: 'Clients',
+        icon: BuildingIcon,
+        roles: ['ADMIN'],
+      },
+      {
+        href: '/team',
+        label: 'Team',
+        icon: UsersIcon,
+        roles: ['ADMIN'],
+      },
+    ],
   },
 ]
 
-export function navItemsFor(role: Role) {
-  return NAV_ITEMS.filter((item) => item.roles.includes(role))
+/** Groups visible to `role`, with empty groups dropped. */
+export function navGroupsFor(role: Role): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.roles.includes(role)),
+  })).filter((group) => group.items.length > 0)
 }
 
 export function isActive(pathname: string, item: NavItem) {
   if (pathname === item.href) return true
   return Boolean(item.matchNested) && pathname.startsWith(`${item.href}/`)
+}
+
+/**
+ * Label for the section the user is currently in — shown in the top bar, where
+ * it gives context that the page's own heading often doesn't (the dashboard
+ * heading is a greeting, not a section name).
+ */
+export function sectionLabelFor(pathname: string, role: Role) {
+  for (const group of navGroupsFor(role)) {
+    for (const item of group.items) {
+      if (isActive(pathname, item)) return item.label
+    }
+  }
+  return undefined
 }

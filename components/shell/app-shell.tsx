@@ -1,11 +1,12 @@
 'use client'
 
-import { LayersIcon, LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
+import { LayersIcon, LogOutIcon, MenuIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import * as React from 'react'
 
-import { isActive, navItemsFor } from '@/components/shell/nav'
+import { sectionLabelFor } from '@/components/shell/nav'
+import { SidebarNav } from '@/components/shell/sidebar-nav'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,58 +17,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { UserAvatar } from '@/components/user-avatar'
 import { logout } from '@/lib/actions/auth'
 import type { SessionUser } from '@/lib/dal'
 import { ROLE_LABELS } from '@/lib/rbac'
-import { cn } from '@/lib/utils'
 
-export function AppShell({
-  user,
-  children,
-}: {
-  user: SessionUser
-  children: React.ReactNode
-}) {
-  const pathname = usePathname()
-  const [mobileOpen, setMobileOpen] = React.useState(false)
-  const items = navItemsFor(user.role)
-
-  // Close the drawer whenever the route changes. Adjusting state during render
-  // (rather than in an effect) avoids a second paint with the drawer still up.
-  const [lastPath, setLastPath] = React.useState(pathname)
-  if (lastPath !== pathname) {
-    setLastPath(pathname)
-    setMobileOpen(false)
-  }
-
-  const nav = (
-    <nav className="flex flex-col gap-1">
-      {items.map((item) => {
-        const active = isActive(pathname, item)
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              active
-                ? 'bg-primary/12 text-primary'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-            )}
-          >
-            <item.icon className="size-4 shrink-0" />
-            {item.label}
-          </Link>
-        )
-      })}
-    </nav>
-  )
-
-  const brand = (
-    <Link href="/" className="flex items-center gap-2.5 px-1">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+function Brand() {
+  return (
+    <Link
+      href="/"
+      className="flex items-center gap-2.5 rounded-lg px-1 py-1 focus-visible:ring-2 focus-visible:ring-ring outline-none"
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
         <LayersIcon className="size-4" />
       </span>
       <span className="text-[0.95rem] leading-tight font-semibold tracking-tight">
@@ -78,93 +40,140 @@ export function AppShell({
       </span>
     </Link>
   )
+}
+
+function UserMenu({ user }: { user: SessionUser }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-full p-0.5 pr-1 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring sm:pr-2.5 outline-none"
+        >
+          <UserAvatar name={user.name} avatarUrl={user.image} />
+          <span className="hidden text-sm font-medium sm:block">
+            {user.name}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuLabel className="font-normal">
+          <span className="block font-medium">{user.name}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {user.email}
+          </span>
+          <span className="mt-1.5 inline-flex rounded-full bg-primary/12 px-2 py-0.5 text-[0.7rem] font-medium text-primary">
+            {ROLE_LABELS[user.role]}
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <form action={logout}>
+          <DropdownMenuItem asChild variant="destructive">
+            <button type="submit" className="w-full">
+              <LogOutIcon />
+              Sign out
+            </button>
+          </DropdownMenuItem>
+        </form>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Identity block pinned to the bottom of the sidebar. */
+function SidebarFooter({ user }: { user: SessionUser }) {
+  return (
+    <div className="mt-auto flex items-center gap-2.5 rounded-lg border border-border bg-muted/40 p-2.5">
+      <UserAvatar name={user.name} avatarUrl={user.image} className="size-8" />
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-sm font-medium">{user.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {ROLE_LABELS[user.role]}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export function AppShell({
+  user,
+  children,
+}: {
+  user: SessionUser
+  children: React.ReactNode
+}) {
+  const pathname = usePathname()
+  const [mobileOpen, setMobileOpen] = React.useState(false)
+  const section = sectionLabelFor(pathname, user.role)
+
+  // Close the drawer whenever the route changes. Adjusting state during render
+  // (rather than in an effect) avoids a second paint with the drawer still up.
+  const [lastPath, setLastPath] = React.useState(pathname)
+  if (lastPath !== pathname) {
+    setLastPath(pathname)
+    setMobileOpen(false)
+  }
 
   return (
-    <div className="flex min-h-full flex-1">
-      {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-card px-3 py-4 lg:flex">
-        {brand}
-        {nav}
+    <div className="flex min-h-dvh flex-1">
+      {/* Desktop sidebar — sticky and independently scrollable, so the nav
+          stays reachable on long pages. */}
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-6 border-r border-border bg-card px-3 py-4 lg:flex">
+        <Brand />
+        <SidebarNav role={user.role} />
+        <SidebarFooter user={user} />
       </aside>
 
-      {/* Mobile drawer */}
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close navigation"
-            className="absolute inset-0 bg-black/45"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="animate-in slide-in-from-left relative flex h-full w-64 flex-col gap-6 border-r border-border bg-card px-3 py-4">
-            <div className="flex items-center justify-between">
-              {brand}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setMobileOpen(false)}
-              >
-                <XIcon />
-                <span className="sr-only">Close navigation</span>
-              </Button>
-            </div>
-            {nav}
-          </aside>
-        </div>
-      ) : null}
-
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-sm sm:px-6">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="lg:hidden"
-            onClick={() => setMobileOpen(true)}
-          >
-            <MenuIcon />
-            <span className="sr-only">Open navigation</span>
-          </Button>
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="lg:hidden">
+                <MenuIcon />
+                <span className="sr-only">Open navigation</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              title="Navigation"
+              description="Move between sections of the workspace."
+              className="lg:hidden"
+            >
+              <Brand />
+              <SidebarNav role={user.role} />
+              <SidebarFooter user={user} />
+            </SheetContent>
+          </Sheet>
 
-          <div className="ml-auto flex items-center gap-2">
+          {/* The brand is only in the sidebar on desktop, so mobile gets it
+              here instead. */}
+          <span className="lg:hidden">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <LayersIcon className="size-3.5" />
+              </span>
+              <span className="text-sm font-semibold tracking-tight">
+                Parallax
+              </span>
+            </Link>
+          </span>
+
+          {section ? (
+            <span className="hidden text-sm font-medium text-muted-foreground lg:block">
+              {section}
+            </span>
+          ) : null}
+
+          <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 rounded-full p-0.5 pr-2 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                >
-                  <UserAvatar name={user.name} avatarUrl={user.image} />
-                  <span className="hidden text-sm font-medium sm:block">
-                    {user.name}
-                  </span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <span className="block font-medium">{user.name}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {user.email}
-                  </span>
-                  <span className="mt-1 block text-xs text-primary">
-                    {ROLE_LABELS[user.role]}
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <form action={logout}>
-                  <DropdownMenuItem asChild variant="destructive">
-                    <button type="submit" className="w-full">
-                      <LogOutIcon />
-                      Sign out
-                    </button>
-                  </DropdownMenuItem>
-                </form>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <UserMenu user={user} />
           </div>
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-7xl space-y-6">{children}</div>
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>

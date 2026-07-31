@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
-import { ReceiptIcon } from 'lucide-react'
+import { PlusIcon, ReceiptIcon } from 'lucide-react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { InvoiceDialog } from '@/components/invoices/invoice-dialog'
 import { InvoiceStatusSelect } from '@/components/invoices/invoice-status-select'
 import { EmptyState, PageHeader } from '@/components/page-header'
+import { TableFallback } from '@/components/skeletons'
+import { Button } from '@/components/ui/button'
 import { StatCard } from '@/components/stat-card'
 import { InvoiceStatusBadge } from '@/components/status-badge'
 import { StatusFilter } from '@/components/status-filter'
@@ -18,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { INVOICE_STATUSES, INVOICE_STATUS_LABELS } from '@/lib/constants'
-import { requireRole } from '@/lib/dal'
+import { requireRole, type SessionUser } from '@/lib/dal'
 import { listInvoices, listProjects } from '@/lib/queries'
 import { canManageInvoices } from '@/lib/rbac'
 import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
@@ -27,17 +30,72 @@ export const metadata: Metadata = { title: 'Invoices' }
 
 export default async function InvoicesPage(props: PageProps<'/invoices'>) {
   // Clients reach this page too, but `listInvoices` scopes them to their own
-  // projects.
+  // projects. The gate runs before streaming so its redirect stays a real 307.
   const user = await requireRole('ADMIN', 'CLIENT')
 
   const { status } = await props.searchParams
   const current = typeof status === 'string' ? status : 'ALL'
-
   const canBill = canManageInvoices(user.role)
-  const [invoices, projects] = await Promise.all([
-    listInvoices(user, current),
-    canBill ? listProjects(user) : Promise.resolve([]),
-  ])
+
+  return (
+    <>
+      <PageHeader
+        title="Invoices"
+        description={
+          canBill
+            ? 'Billing across every engagement.'
+            : 'Invoices raised against your projects.'
+        }
+      >
+        {canBill ? (
+          <Suspense
+            fallback={
+              <Button disabled>
+                <PlusIcon />
+                New invoice
+              </Button>
+            }
+          >
+            <NewInvoiceButton user={user} />
+          </Suspense>
+        ) : null}
+      </PageHeader>
+
+      <StatusFilter
+        basePath="/invoices"
+        current={current}
+        options={INVOICE_STATUSES.map((value) => ({
+          value,
+          label: INVOICE_STATUS_LABELS[value],
+        }))}
+      />
+
+      <Suspense key={current} fallback={<TableFallback rows={6} stats={3} />}>
+        <InvoiceContent user={user} status={current} canBill={canBill} />
+      </Suspense>
+    </>
+  )
+}
+
+async function NewInvoiceButton({ user }: { user: SessionUser }) {
+  const projects = await listProjects(user)
+  return (
+    <InvoiceDialog
+      projects={projects.map((p) => ({ id: p.id, title: p.title }))}
+    />
+  )
+}
+
+async function InvoiceContent({
+  user,
+  status,
+  canBill,
+}: {
+  user: SessionUser
+  status: string
+  canBill: boolean
+}) {
+  const invoices = await listInvoices(user, status)
 
   const paid = invoices
     .filter((invoice) => invoice.status === 'PAID')
@@ -52,27 +110,12 @@ export default async function InvoicesPage(props: PageProps<'/invoices'>) {
   ).length
 
   return (
-    <>
-      <PageHeader
-        title="Invoices"
-        description={
-          canBill
-            ? 'Billing across every engagement.'
-            : 'Invoices raised against your projects.'
-        }
-      >
-        {canBill ? (
-          <InvoiceDialog
-            projects={projects.map((p) => ({ id: p.id, title: p.title }))}
-          />
-        ) : null}
-      </PageHeader>
-
+    <div className="flex flex-col gap-6">
       <section className="grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Paid"
           value={formatCurrency(paid)}
-          hint={`${current === 'ALL' ? 'All time' : 'Filtered view'}`}
+          hint={status === 'ALL' ? 'All time' : 'Filtered view'}
           icon={ReceiptIcon}
           tone="success"
         />
@@ -91,15 +134,6 @@ export default async function InvoicesPage(props: PageProps<'/invoices'>) {
           tone={overdueCount > 0 ? 'danger' : 'success'}
         />
       </section>
-
-      <StatusFilter
-        basePath="/invoices"
-        current={current}
-        options={INVOICE_STATUSES.map((value) => ({
-          value,
-          label: INVOICE_STATUS_LABELS[value],
-        }))}
-      />
 
       {invoices.length === 0 ? (
         <EmptyState
@@ -178,6 +212,6 @@ export default async function InvoicesPage(props: PageProps<'/invoices'>) {
           </CardContent>
         </Card>
       )}
-    </>
+    </div>
   )
 }

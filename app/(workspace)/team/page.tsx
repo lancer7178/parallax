@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 
 import { PageHeader } from '@/components/page-header'
+import { TableFallback } from '@/components/skeletons'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -21,8 +23,8 @@ import { formatDate } from '@/lib/utils'
 export const metadata: Metadata = { title: 'Team' }
 
 export default async function TeamPage() {
+  // Gate before streaming so the redirect stays a real 307.
   await requireRole('ADMIN')
-  const people = await listTeam()
 
   return (
     <>
@@ -38,8 +40,19 @@ export default async function TeamPage() {
         />
       </PageHeader>
 
-      <Card>
-        <CardContent className="px-0 pt-0">
+      <Suspense fallback={<TableFallback rows={6} />}>
+        <TeamTable />
+      </Suspense>
+    </>
+  )
+}
+
+async function TeamTable() {
+  const people = await listTeam()
+
+  return (
+    <Card>
+      <CardContent className="px-0 pt-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -78,10 +91,9 @@ export default async function TeamPage() {
                   </TableCell>
                 </TableRow>
               ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }

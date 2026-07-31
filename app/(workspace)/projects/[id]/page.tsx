@@ -38,7 +38,7 @@ import {
   canManageTasks,
   canViewFinancials,
 } from '@/lib/rbac'
-import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
+import { cn, daysUntil, formatCurrency, formatDate } from '@/lib/utils'
 
 export async function generateMetadata(
   props: PageProps<'/projects/[id]'>
@@ -138,7 +138,14 @@ export default async function ProjectDetailPage(
         </div>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Only four across when the viewer actually gets the two money cards —
+          otherwise two tiles would sit stranded in a four-column track. */}
+      <section
+        className={cn(
+          'grid gap-4 sm:grid-cols-2',
+          seesMoney && 'xl:grid-cols-4'
+        )}
+      >
         <Card className="p-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Progress

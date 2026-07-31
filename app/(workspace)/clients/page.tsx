@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { BuildingIcon } from 'lucide-react'
+import { Suspense } from 'react'
 
 import { EmptyState, PageHeader } from '@/components/page-header'
+import { TableFallback } from '@/components/skeletons'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -20,8 +22,8 @@ import { formatDate } from '@/lib/utils'
 export const metadata: Metadata = { title: 'Clients' }
 
 export default async function ClientsPage() {
+  // Gate before streaming so the redirect stays a real 307.
   await requireRole('ADMIN')
-  const clients = await listClients()
 
   return (
     <>
@@ -37,6 +39,18 @@ export default async function ClientsPage() {
         />
       </PageHeader>
 
+      <Suspense fallback={<TableFallback rows={5} />}>
+        <ClientsTable />
+      </Suspense>
+    </>
+  )
+}
+
+async function ClientsTable() {
+  const clients = await listClients()
+
+  return (
+    <>
       {clients.length === 0 ? (
         <EmptyState
           icon={<BuildingIcon className="size-6" />}

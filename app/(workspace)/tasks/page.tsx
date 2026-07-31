@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import { KanbanSquareIcon } from 'lucide-react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { EmptyState, PageHeader } from '@/components/page-header'
+import { TableFallback } from '@/components/skeletons'
 import { PriorityBadge, TaskStatusBadge } from '@/components/status-badge'
 import { StatusFilter } from '@/components/status-filter'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,23 +18,19 @@ import {
 } from '@/components/ui/table'
 import { UserAvatar } from '@/components/user-avatar'
 import { TASK_STATUSES, TASK_STATUS_LABELS } from '@/lib/constants'
-import { requireRole } from '@/lib/dal'
+import { requireRole, type SessionUser } from '@/lib/dal'
 import { listTasks } from '@/lib/queries'
 import { cn, formatDate } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Tasks' }
 
 export default async function TasksPage(props: PageProps<'/tasks'>) {
+  // Gate before streaming so the redirect stays a real 307.
   const user = await requireRole('ADMIN', 'DEVELOPER', 'DESIGNER')
 
   const { status, assignee } = await props.searchParams
   const currentStatus = typeof status === 'string' ? status : 'ALL'
   const mineOnly = assignee === 'me'
-
-  const tasks = await listTasks(user, {
-    status: currentStatus,
-    assignee: mineOnly ? 'me' : 'all',
-  })
 
   const query = (next: Record<string, string | undefined>) => {
     const params = new URLSearchParams()
@@ -89,6 +87,36 @@ export default async function TasksPage(props: PageProps<'/tasks'>) {
         </div>
       </div>
 
+      <Suspense
+        key={`${currentStatus}:${mineOnly}`}
+        fallback={<TableFallback rows={8} />}
+      >
+        <TasksTable
+          user={user}
+          status={currentStatus}
+          mineOnly={mineOnly}
+        />
+      </Suspense>
+    </>
+  )
+}
+
+async function TasksTable({
+  user,
+  status,
+  mineOnly,
+}: {
+  user: SessionUser
+  status: string
+  mineOnly: boolean
+}) {
+  const tasks = await listTasks(user, {
+    status,
+    assignee: mineOnly ? 'me' : 'all',
+  })
+
+  return (
+    <>
       {tasks.length === 0 ? (
         <EmptyState
           icon={<KanbanSquareIcon className="size-6" />}

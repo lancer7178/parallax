@@ -6,8 +6,10 @@ import {
   TrendingUpIcon,
 } from 'lucide-react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { EmptyState, PageHeader } from '@/components/page-header'
+import { DashboardFallback } from '@/components/skeletons'
 import { ProjectCard } from '@/components/projects/project-card'
 import { StatCard } from '@/components/stat-card'
 import { InvoiceStatusBadge } from '@/components/status-badge'
@@ -21,15 +23,31 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { requireRole } from '@/lib/dal'
+import { requireRole, type SessionUser } from '@/lib/dal'
 import { getDashboardStats, listInvoices, listProjects } from '@/lib/queries'
 import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Your projects' }
 
 export default async function PortalPage() {
+  // Gate before streaming so the redirect stays a real 307.
   const user = await requireRole('CLIENT')
 
+  return (
+    <>
+      <PageHeader
+        title={`Welcome, ${user.name}`}
+        description="Track delivery progress and billing for your engagements."
+      />
+
+      <Suspense fallback={<DashboardFallback />}>
+        <PortalContent user={user} />
+      </Suspense>
+    </>
+  )
+}
+
+async function PortalContent({ user }: { user: SessionUser }) {
   const [projects, invoices, stats] = await Promise.all([
     listProjects(user),
     listInvoices(user),
@@ -55,12 +73,7 @@ export default async function PortalPage() {
   )
 
   return (
-    <>
-      <PageHeader
-        title={`Welcome, ${user.name}`}
-        description="Track delivery progress and billing for your engagements."
-      />
-
+    <div className="flex flex-col gap-6">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Active projects"
@@ -185,6 +198,6 @@ export default async function PortalPage() {
           )}
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }

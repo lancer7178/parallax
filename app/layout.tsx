@@ -29,6 +29,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // The pre-paint theme script below adds `.dark` before hydration, so the
+      // class list legitimately differs from the server render.
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>

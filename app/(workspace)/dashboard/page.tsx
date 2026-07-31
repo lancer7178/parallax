@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import {
   AlertTriangleIcon,
   BriefcaseIcon,
@@ -13,10 +14,11 @@ import { InvoiceStatusChart } from '@/components/charts/invoice-status-chart'
 import { PipelineChart } from '@/components/charts/pipeline-chart'
 import { RevenueChart } from '@/components/charts/revenue-chart'
 import { PageHeader } from '@/components/page-header'
+import { DashboardFallback } from '@/components/skeletons'
 import { StatCard } from '@/components/stat-card'
 import { ProjectStatusBadge } from '@/components/status-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { requireRole } from '@/lib/dal'
+import { requireRole, type SessionUser } from '@/lib/dal'
 import { getDashboardStats } from '@/lib/queries'
 import { canViewFinancials } from '@/lib/rbac'
 import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
@@ -24,8 +26,9 @@ import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
 export const metadata: Metadata = { title: 'Dashboard' }
 
 export default async function DashboardPage() {
+  // The role gate runs before anything streams, so it can still issue a real
+  // 307 rather than a client-side hop. See `components/skeletons.tsx`.
   const user = await requireRole('ADMIN', 'DEVELOPER', 'DESIGNER')
-  const stats = await getDashboardStats(user)
   const showMoney = canViewFinancials(user.role)
 
   return (
@@ -39,6 +42,19 @@ export default async function DashboardPage() {
         }
       />
 
+      <Suspense fallback={<DashboardFallback />}>
+        <DashboardContent user={user} />
+      </Suspense>
+    </>
+  )
+}
+
+async function DashboardContent({ user }: { user: SessionUser }) {
+  const stats = await getDashboardStats(user)
+  const showMoney = canViewFinancials(user.role)
+
+  return (
+    <div className="flex flex-col gap-6">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {showMoney ? (
           <>
@@ -85,32 +101,30 @@ export default async function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        {showMoney ? (
-          <>
+      {/* Both rows share a 2:1 split so the page keeps one rhythm whether or
+          not the viewer can see financials. */}
+      {showMoney ? (
+        <section className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
             <RevenueChart data={stats.revenueByMonth} />
-            <InvoiceStatusChart data={stats.invoicesByStatus} />
-          </>
-        ) : (
-          <PipelineChart data={stats.tasksByStatus} />
-        )}
-      </section>
+          </div>
+          <InvoiceStatusChart data={stats.invoicesByStatus} />
+        </section>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-3">
-        {showMoney ? (
-          <div className="lg:col-span-2">
-            <PipelineChart data={stats.tasksByStatus} />
-          </div>
-        ) : null}
+        <div className="lg:col-span-2">
+          <PipelineChart data={stats.tasksByStatus} />
+        </div>
 
-        <Card className={showMoney ? '' : 'lg:col-span-3'}>
-          <CardHeader className="flex-row items-center justify-between">
+        <Card className="flex flex-col">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarClockIcon className="size-4 text-muted-foreground" />
               Upcoming deadlines
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {stats.upcomingDeadlines.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 No deadlines scheduled.
@@ -124,10 +138,10 @@ export default async function DashboardPage() {
                   const late = days !== null && days < 0
 
                   return (
-                    <li key={project.id} className="py-3 first:pt-0 last:pb-0">
+                    <li key={project.id} className="first:-mt-1">
                       <Link
                         href={`/projects/${project.id}`}
-                        className="group flex items-start justify-between gap-3"
+                        className="group -mx-2 flex items-start justify-between gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-accent/60"
                       >
                         <span className="min-w-0 space-y-1">
                           <span className="block truncate text-sm font-medium group-hover:underline">
@@ -161,6 +175,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </section>
-    </>
+    </div>
   )
 }
