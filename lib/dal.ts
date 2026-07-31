@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { cache } from 'react'
 
 import { auth } from '@/auth'
+import { prisma } from '@/lib/prisma'
 import { homePathFor } from '@/lib/rbac'
 
 export type SessionUser = {
@@ -26,12 +27,22 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const session = await auth()
   if (!session?.user?.id) return null
 
+  // The JWT only proves *who* signed in — name, email, role and avatar are
+  // read fresh from the database on every request, so a profile edit, a role
+  // change or an account deletion take effect immediately instead of waiting
+  // for the token to be reissued at next sign-in.
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+  })
+  if (!user) return null
+
   return {
-    id: session.user.id,
-    name: session.user.name ?? 'Unknown',
-    email: session.user.email ?? '',
-    role: session.user.role,
-    image: session.user.image ?? null,
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    image: user.avatarUrl,
   }
 })
 

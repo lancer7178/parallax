@@ -133,6 +133,36 @@ export const updateUserSchema = z.object({
     ),
 })
 
+/** Self-service account edit — no `role`, and the password is only rotated
+ *  when a new one is given alongside the current one. */
+export const accountSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, { error: 'Name must be at least 2 characters.' })
+    .max(80),
+  email: z.email({ error: 'Enter a valid email address.' }).trim().toLowerCase(),
+  currentPassword: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+  newPassword: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined))
+    .refine(
+      (value) =>
+        value === undefined ||
+        (value.length >= 8 && /[a-zA-Z]/.test(value) && /[0-9]/.test(value)),
+      {
+        error:
+          'Password must be at least 8 characters and contain a letter and a number.',
+      }
+    ),
+})
+
 export type FormState = {
   ok?: boolean
   message?: string

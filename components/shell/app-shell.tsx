@@ -1,6 +1,6 @@
 'use client'
 
-import { LogOutIcon, MenuIcon } from 'lucide-react'
+import { LogOutIcon, MenuIcon, SettingsIcon } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -73,6 +73,13 @@ function UserMenu({ user }: { user: SessionUser }) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <SettingsIcon />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <form action={logout}>
           <DropdownMenuItem asChild variant="destructive">
             <button type="submit" className="w-full">
@@ -86,11 +93,14 @@ function UserMenu({ user }: { user: SessionUser }) {
   )
 }
 
-/** Identity block pinned to the bottom of the sidebar. */
+/** Identity block pinned to the bottom of the sidebar — links to Settings. */
 function SidebarFooter({ user }: { user: SessionUser }) {
   return (
     <div className="mt-auto border-t border-border/60 pt-3">
-      <div className="flex items-center gap-2.5 rounded-xl border border-transparent p-2 transition-colors hover:border-border/60 hover:bg-muted/50">
+      <Link
+        href="/settings"
+        className="flex items-center gap-2.5 rounded-xl border border-transparent p-2 transition-colors hover:border-border/60 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring outline-none"
+      >
         <UserAvatar name={user.name} avatarUrl={user.image} className="size-8" />
         <div className="min-w-0 leading-tight">
           <p className="truncate text-sm font-medium">{user.name}</p>
@@ -98,7 +108,7 @@ function SidebarFooter({ user }: { user: SessionUser }) {
             {ROLE_LABELS[user.role]}
           </p>
         </div>
-      </div>
+      </Link>
     </div>
   )
 }
