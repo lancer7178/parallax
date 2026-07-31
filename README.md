@@ -31,16 +31,34 @@ Open <http://localhost:3000>.
 | `AUTH_URL`      | Inferred in dev; set explicitly in production                   |
 | `SEED_PASSWORD` | Password given to every seeded account                          |
 
-### Demo accounts
+### Accounts
 
-All share the password in `SEED_PASSWORD` (default `Parallax!2026`).
+The **admin is private**. It is never given `SEED_PASSWORD`, never listed on the
+login page, and re-seeding never resets its password. Set it up once with:
 
-| Email                    | Role      | Lands on     |
-| ------------------------ | --------- | ------------ |
-| `admin@parallax.agency`  | Admin     | `/dashboard` |
-| `omar@parallax.agency`   | Developer | `/dashboard` |
-| `yara@parallax.agency`   | Designer  | `/dashboard` |
-| `ops@helios-retail.com`  | Client    | `/portal`    |
+```bash
+npm run admin:password -- admin@parallax.agency        # generates and prints one
+npm run admin:password -- admin@parallax.agency 'pw'   # or choose your own
+```
+
+If the admin row does not exist yet, `npm run db:seed` creates it from
+`ADMIN_EMAIL` / `ADMIN_PASSWORD` and fails loudly if `ADMIN_PASSWORD` is unset —
+so a public admin can never be created by accident.
+
+**Demo accounts** share `SEED_PASSWORD` (default `Parallax!2026`) and are
+re-hashed on every seed, each with its own salt. None of them may be an admin:
+the seed types the demo list as `Exclude<Role, 'ADMIN'>`, so adding one is a
+compile error rather than a silent privilege grant.
+
+| Email                       | Role      | Lands on     |
+| --------------------------- | --------- | ------------ |
+| `abdulatef@parallax.agency` | Developer | `/dashboard` |
+| `lina@parallax.agency`      | Developer | `/dashboard` |
+| `sara@parallax.agency`      | Designer  | `/dashboard` |
+| `karim@parallax.agency`     | Designer  | `/dashboard` |
+| `ops@helios-retail.com`     | Client    | `/portal`    |
+| `hello@northwindlabs.io`    | Client    | `/portal`    |
+| `it@meridianhealth.co`      | Client    | `/portal`    |
 
 ---
 
@@ -183,6 +201,7 @@ ships with a visible label, so state is never encoded by colour alone.
 | `npm run db:migrate` | Create and apply a migration |
 | `npm run db:deploy` | Apply migrations (production) |
 | `npm run db:seed` | Seed demo data (idempotent) |
+| `npm run admin:password -- <email> [pw]` | Set or rotate an account password |
 | `npm run db:studio` | Prisma Studio |
 
 ---
