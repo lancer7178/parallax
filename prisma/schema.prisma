@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neon: DATABASE_URL is the pooled connection, DIRECT_URL bypasses the
+  // pooler for migrations (pgBouncer cannot run DDL in a transaction).
+  directUrl = env("DIRECT_URL")
+}
+
+// --- Enums ---
+
+enum Role {
+  ADMIN
+  DEVELOPER
+  DESIGNER
+  CLIENT
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  IN_REVIEW
+  COMPLETED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  OVERDUE
+}
+
+// --- Models ---
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String // Hashed password if using Credentials provider
+  role      Role     @default(CLIENT)
+  avatarUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientProjects Project[] @relation("ClientProjects")
+  assignedTasks  Task[]    @relation("AssignedTasks")
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  title       String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  deadline    DateTime?
+  budget      Float? // Allocated budget for the project
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientId String
+  client   User   @relation("ClientProjects", fields: [clientId], references: [id])
+
+  tasks    Task[]
+  invoices Invoice[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Int        @default(1) // 1: Low, 2: Medium, 3: High
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assigneeId String?
+  assignee   User?   @relation("AssignedTasks", fields: [assigneeId], references: [id])
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+model Invoice {
+  id      String        @id @default(uuid())
+  amount  Float // Invoice total amount
+  status  InvoiceStatus @default(DRAFT)
+  dueDate DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}

@@ -1,26 +1,155 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+/* Supplies the `animate-in` / `fade-in-0` / `zoom-in-95` utilities that the
+   Radix-based primitives use for enter and exit transitions. */
+@import 'tw-animate-css';
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: oklch(0.985 0.002 265);
+  --foreground: oklch(0.21 0.02 265);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 265);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 265);
+
+  --primary: oklch(0.52 0.19 275);
+  --primary-foreground: oklch(0.99 0.005 275);
+
+  --secondary: oklch(0.96 0.006 265);
+  --secondary-foreground: oklch(0.3 0.02 265);
+
+  --muted: oklch(0.965 0.005 265);
+  --muted-foreground: oklch(0.53 0.02 265);
+
+  --accent: oklch(0.95 0.02 275);
+  --accent-foreground: oklch(0.34 0.09 275);
+
+  --destructive: oklch(0.58 0.21 27);
+  --destructive-foreground: oklch(0.99 0.005 27);
+
+  --success: oklch(0.62 0.15 155);
+  --warning: oklch(0.72 0.16 70);
+
+  --border: oklch(0.92 0.006 265);
+  --input: oklch(0.92 0.006 265);
+  --ring: oklch(0.52 0.19 275);
+
+  /* Categorical chart slots, assigned in fixed order and never cycled.
+     Validated for lightness band, chroma floor, CVD separation and contrast
+     against the light surface (#f9fafb). Do not re-step without re-running
+     the palette validator. */
+  --chart-1: oklch(0.5 0.19 275); /* indigo  #494fcc */
+  --chart-2: oklch(0.66 0.15 70); /* amber   #cb7f00 */
+  --chart-3: oklch(0.5 0.21 350); /* magenta #b10074 */
+  --chart-4: oklch(0.61 0.13 195); /* teal    #009a9b */
+
+  --grid: oklch(0.91 0.006 265);
+
+  --radius: 0.7rem;
+}
+
+.dark {
+  --background: oklch(0.17 0.015 265);
+  --foreground: oklch(0.96 0.004 265);
+
+  --card: oklch(0.21 0.018 265);
+  --card-foreground: oklch(0.96 0.004 265);
+
+  --popover: oklch(0.21 0.018 265);
+  --popover-foreground: oklch(0.96 0.004 265);
+
+  --primary: oklch(0.68 0.16 275);
+  --primary-foreground: oklch(0.17 0.03 275);
+
+  --secondary: oklch(0.27 0.02 265);
+  --secondary-foreground: oklch(0.93 0.005 265);
+
+  --muted: oklch(0.26 0.018 265);
+  --muted-foreground: oklch(0.7 0.02 265);
+
+  --accent: oklch(0.3 0.05 275);
+  --accent-foreground: oklch(0.92 0.03 275);
+
+  --destructive: oklch(0.62 0.2 25);
+  --destructive-foreground: oklch(0.98 0.005 25);
+
+  --success: oklch(0.68 0.14 155);
+  --warning: oklch(0.78 0.15 70);
+
+  --border: oklch(0.3 0.02 265);
+  --input: oklch(0.32 0.02 265);
+  --ring: oklch(0.68 0.16 275);
+
+  /* Dark mode is separately stepped and separately validated against the
+     dark surface (#0c0f16) — never an automatic flip of the light values. */
+  --chart-1: oklch(0.58 0.17 275); /* indigo  #606cdd */
+  --chart-2: oklch(0.66 0.14 70); /* amber   #c8800d */
+  --chart-3: oklch(0.55 0.2 350); /* magenta #bf2a82 */
+  --chart-4: oklch(0.64 0.12 195); /* teal    #00a2a3 */
+
+  --grid: oklch(0.29 0.02 265);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-grid: var(--grid);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Recharts injects inline SVG that should never capture the focus ring. */
+  .recharts-wrapper:focus,
+  .recharts-surface:focus {
+    outline: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
