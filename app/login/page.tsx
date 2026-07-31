@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { LayersIcon, ShieldCheckIcon, TerminalIcon } from 'lucide-react'
+import { ShieldCheckIcon, TerminalIcon } from 'lucide-react'
+import Image from 'next/image'
 
 import { LoginForm } from './login-form'
 
@@ -28,9 +29,14 @@ export default async function LoginPage(props: PageProps<'/login'>) {
           the extra measure to stay readable. */}
       <div className="w-full max-w-md space-y-6">
         <div className="space-y-2 text-center">
-          <div className="mx-auto flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <LayersIcon className="size-5" />
-          </div>
+          <Image
+            src="/parallax-logo.png"
+            alt=""
+            width={44}
+            height={44}
+            className="mx-auto size-11"
+            priority
+          />
           <h1 className="text-2xl font-semibold tracking-tight">Parallax</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to your agency workspace.

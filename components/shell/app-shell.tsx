@@ -1,6 +1,7 @@
 'use client'
 
-import { LayersIcon, LogOutIcon, MenuIcon } from 'lucide-react'
+import { LogOutIcon, MenuIcon } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import * as React from 'react'
@@ -29,9 +30,14 @@ function Brand() {
       href="/"
       className="flex items-center gap-2.5 rounded-lg px-1 py-1 focus-visible:ring-2 focus-visible:ring-ring outline-none"
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-        <LayersIcon className="size-4" />
-      </span>
+      <Image
+        src="/parallax-logo.png"
+        alt=""
+        width={32}
+        height={32}
+        className="size-8 shrink-0"
+        priority
+      />
       <span className="text-[0.95rem] leading-tight font-semibold tracking-tight">
         Parallax
         <span className="block text-[0.7rem] font-normal text-muted-foreground">
@@ -83,13 +89,15 @@ function UserMenu({ user }: { user: SessionUser }) {
 /** Identity block pinned to the bottom of the sidebar. */
 function SidebarFooter({ user }: { user: SessionUser }) {
   return (
-    <div className="mt-auto flex items-center gap-2.5 rounded-lg border border-border bg-muted/40 p-2.5">
-      <UserAvatar name={user.name} avatarUrl={user.image} className="size-8" />
-      <div className="min-w-0 leading-tight">
-        <p className="truncate text-sm font-medium">{user.name}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {ROLE_LABELS[user.role]}
-        </p>
+    <div className="mt-auto border-t border-border/60 pt-3">
+      <div className="flex items-center gap-2.5 rounded-xl border border-transparent p-2 transition-colors hover:border-border/60 hover:bg-muted/50">
+        <UserAvatar name={user.name} avatarUrl={user.image} className="size-8" />
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-sm font-medium">{user.name}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {ROLE_LABELS[user.role]}
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -115,17 +123,18 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-dvh flex-1">
-      {/* Desktop sidebar — sticky and independently scrollable, so the nav
-          stays reachable on long pages. */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-6 border-r border-border bg-card px-3 py-4 lg:flex">
+    <div className="flex h-dvh flex-1 bg-muted/30 lg:gap-3 lg:p-3">
+      {/* Desktop sidebar — its own floating panel, sized and shadowed to
+          match the content pane so the two read as a pair. Sticky and
+          independently scrollable so the nav stays reachable on long pages. */}
+      <aside className="sticky top-0 hidden h-full w-60 shrink-0 flex-col gap-5 rounded-3xl border border-border/60 bg-card px-3 py-4 shadow-sm lg:flex">
         <Brand />
         <SidebarNav role={user.role} />
         <SidebarFooter user={user} />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6">
+      <div className="relative flex min-w-0 flex-1 flex-col lg:rounded-3xl border-0 lg:border border-border/60 bg-card lg:shadow-sm overflow-hidden">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-card/90 px-4 backdrop-blur-md sm:px-6">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon-sm" className="lg:hidden">
@@ -149,9 +158,13 @@ export function AppShell({
               here instead. */}
           <span className="lg:hidden">
             <Link href="/" className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <LayersIcon className="size-3.5" />
-              </span>
+              <Image
+                src="/parallax-logo.png"
+                alt=""
+                width={28}
+                height={28}
+                className="size-7 shrink-0"
+              />
               <span className="text-sm font-semibold tracking-tight">
                 Parallax
               </span>
@@ -170,7 +183,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 scrollbar-thin">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
             {children}
           </div>

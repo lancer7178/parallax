@@ -16,9 +16,9 @@ export function SidebarNav({ role }: { role: Role }) {
   return (
     <nav className="flex flex-1 flex-col gap-5 overflow-y-auto">
       {groups.map((group) => (
-        <div key={group.label} className="space-y-1">
+        <div key={group.label} className="space-y-0.5">
           {showLabels ? (
-            <p className="px-3 pb-1 text-[0.68rem] font-semibold tracking-wider text-muted-foreground/70 uppercase">
+            <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-widest text-muted-foreground/70 uppercase">
               {group.label}
             </p>
           ) : null}
@@ -31,21 +31,26 @@ export function SidebarNav({ role }: { role: Role }) {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-150',
                   active
-                    ? 'bg-primary/12 text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-primary/10 font-semibold text-primary'
+                    : 'font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                 )}
               >
                 {/* Active rail: a second, non-colour cue for the current page. */}
                 <span
                   aria-hidden
                   className={cn(
-                    'absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary transition-opacity',
+                    'absolute inset-y-1.5 left-0 w-0.75 rounded-full bg-primary transition-opacity duration-150',
                     active ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                <item.icon className="size-4 shrink-0" />
+                <item.icon
+                  className={cn(
+                    'size-4 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5',
+                    !active && 'text-muted-foreground/80 group-hover:text-foreground'
+                  )}
+                />
                 {item.label}
               </Link>
             )

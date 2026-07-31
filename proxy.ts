@@ -37,6 +37,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip Next internals, the Auth.js endpoints, and static assets.
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.svg$).*)'],
+  // Skip Next internals, the Auth.js endpoints, and static assets — including
+  // ones the image optimizer fetches internally, which carry no session cookie.
+  matcher: [
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 }
