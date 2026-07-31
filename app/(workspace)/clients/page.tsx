@@ -93,9 +93,10 @@ async function ClientsTable() {
                       {formatDate(client.createdAt)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <UserActions 
-                        user={client} 
-                        otherClients={clients.filter((c) => c.id !== client.id)} 
+                      <UserActions
+                        user={{ ...client, role: 'CLIENT' }}
+                        editableRoles={['CLIENT']}
+                        otherClients={clients.filter((c) => c.id !== client.id)}
                       />
                     </TableCell>
                   </TableRow>

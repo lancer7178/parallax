@@ -108,6 +108,31 @@ export const userSchema = z.object({
     .regex(/[0-9]/, { error: 'Password must contain a number.' }),
 })
 
+/** Same as `userSchema`, but the password is only rotated when provided. */
+export const updateUserSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, { error: 'Name must be at least 2 characters.' })
+    .max(80),
+  email: z.email({ error: 'Enter a valid email address.' }).trim().toLowerCase(),
+  role: z.enum(Role),
+  password: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined))
+    .refine(
+      (value) =>
+        value === undefined ||
+        (value.length >= 8 && /[a-zA-Z]/.test(value) && /[0-9]/.test(value)),
+      {
+        error:
+          'Password must be at least 8 characters and contain a letter and a number.',
+      }
+    ),
+})
+
 export type FormState = {
   ok?: boolean
   message?: string

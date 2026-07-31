@@ -6,7 +6,12 @@ import { revalidatePath } from 'next/cache'
 import { authorize, ForbiddenError } from '@/lib/dal'
 import { prisma } from '@/lib/prisma'
 import { canManageUsers } from '@/lib/rbac'
-import { toFormState, userSchema, type FormState } from '@/lib/validation'
+import {
+  toFormState,
+  updateUserSchema,
+  userSchema,
+  type FormState,
+} from '@/lib/validation'
 
 export async function createUser(
   _prev: FormState | undefined,
@@ -49,6 +54,81 @@ export async function createUser(
   revalidatePath('/clients')
   revalidatePath('/team')
   return { ok: true, message: `${parsed.data.name} was added.` }
+}
+
+// ---------------------------------------------------------------------------
+// Update user
+// ---------------------------------------------------------------------------
+
+export async function updateUser(
+  _prev: FormState | undefined,
+  formData: FormData
+): Promise<FormState> {
+  try {
+    await authorize(canManageUsers)
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { ok: false, message: error.message }
+    throw error
+  }
+
+  const userId = formData.get('userId')
+  if (typeof userId !== 'string' || !userId) {
+    return { ok: false, message: 'Missing user id.' }
+  }
+
+  const parsed = updateUserSchema.safeParse({
+    name: formData.get('name'),
+    email: formData.get('email'),
+    role: formData.get('role'),
+    password: formData.get('password'),
+  })
+  if (!parsed.success) return toFormState(parsed.error)
+
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true },
+  })
+  if (!existing) return { ok: false, message: 'User not found.' }
+
+  const emailOwner = await prisma.user.findUnique({
+    where: { email: parsed.data.email },
+    select: { id: true },
+  })
+  if (emailOwner && emailOwner.id !== userId) {
+    return {
+      ok: false,
+      message: 'That email is already registered.',
+      errors: { email: ['That email is already registered.'] },
+    }
+  }
+
+  // --- Last-admin guard: don't let the only admin be demoted ---
+  if (existing.role === 'ADMIN' && parsed.data.role !== 'ADMIN') {
+    const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } })
+    if (adminCount <= 1) {
+      return {
+        ok: false,
+        message:
+          'This is the only admin account. Promote another user to admin before changing this role.',
+      }
+    }
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      name: parsed.data.name,
+      email: parsed.data.email,
+      role: parsed.data.role,
+      ...(parsed.data.password
+        ? { password: await bcrypt.hash(parsed.data.password, 10) }
+        : {}),
+    },
+  })
+
+  revalidatePath('/clients')
+  revalidatePath('/team')
+  return { ok: true, message: `${parsed.data.name} was updated.` }
 }
 
 // ---------------------------------------------------------------------------

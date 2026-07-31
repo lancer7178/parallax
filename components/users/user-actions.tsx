@@ -1,6 +1,7 @@
 'use client'
 
-import { MoreHorizontalIcon, TrashIcon } from 'lucide-react'
+import type { Role } from '@prisma/client'
+import { MoreHorizontalIcon, PencilIcon, TrashIcon } from 'lucide-react'
 import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DeleteUserDialog } from '@/components/users/delete-user-dialog'
+import { EditUserDialog } from '@/components/users/edit-user-dialog'
 
 interface Client {
   id: string
@@ -19,11 +21,15 @@ interface Client {
 
 export function UserActions({
   user,
+  editableRoles,
   otherClients,
 }: {
-  user: { id: string; name: string }
+  user: { id: string; name: string; email: string; role: Role }
+  /** Roles selectable in the edit dialog; defaults to all roles (team view). */
+  editableRoles?: Role[]
   otherClients?: Client[]
 }) {
+  const [editOpen, setEditOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
 
   return (
@@ -36,6 +42,10 @@ export function UserActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <PencilIcon className="mr-2" />
+            Edit {otherClients !== undefined ? 'client' : 'member'}
+          </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => setDeleteOpen(true)}
@@ -45,6 +55,13 @@ export function UserActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <EditUserDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        user={user}
+        roles={editableRoles ?? ['DEVELOPER', 'DESIGNER', 'ADMIN', 'CLIENT']}
+      />
 
       <DeleteUserDialog
         open={deleteOpen}
