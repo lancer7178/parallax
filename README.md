@@ -88,6 +88,19 @@ This project targets Next.js 16, which differs from earlier App Router versions:
   inside an effect is an error; state is adjusted during render or inside the
   action transition instead.
 
+### Streaming and status codes
+
+There are **no `loading.tsx` files**, and that is deliberate. A `loading.tsx`
+puts its Suspense boundary *above* the page, so the response begins streaming
+before the page body runs — and a streamed response can no longer set its status
+line. In practice that silently turned `notFound()` on `/projects/[id]` into a
+`200`, and every `requireRole()` redirect into a `200` with a client-side hop.
+
+Instead each page runs its DAL gate first, then wraps only the slow database
+work in an in-page `<Suspense>` (see `components/skeletons.tsx`). Skeletons still
+stream; 404s stay 404s and role redirects stay 307s. The regression suite in
+"Verification" below covers every one of those status codes.
+
 ### Authorization
 
 Security lives in the **Data Access Layer** (`lib/dal.ts`), close to the data —
@@ -110,6 +123,14 @@ component can never be trusted to have restricted itself.
 
 Financial data is *omitted from the response*, not hidden with CSS — a
 designer's project page contains no budget or invoice markup at all.
+
+### Verification
+
+The access rules are exercised over HTTP against the built app with real
+sessions for each role — 26 assertions covering every route, both redirect
+targets, the out-of-scope `404`, and the anonymous bounce. Re-run them after
+touching `lib/dal.ts`, `lib/queries.ts`, or anything that adds a Suspense
+boundary above a page.
 
 ### Layout
 
