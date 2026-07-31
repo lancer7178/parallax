@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { UserAvatar } from '@/components/user-avatar'
+import { UserActions } from '@/components/users/user-actions'
 import { UserDialog } from '@/components/users/user-dialog'
 import { requireRole } from '@/lib/dal'
 import { listTeam } from '@/lib/queries'
@@ -61,6 +62,7 @@ async function TeamTable() {
                 <TableHead>Role</TableHead>
                 <TableHead className="text-right">Assigned tasks</TableHead>
                 <TableHead>Joined</TableHead>
+                <TableHead className="w-12 text-center" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -88,6 +90,9 @@ async function TeamTable() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDate(person.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <UserActions user={person} />
                   </TableCell>
                 </TableRow>
               ))}

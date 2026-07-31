@@ -50,3 +50,146 @@ export async function createUser(
   revalidatePath('/team')
   return { ok: true, message: `${parsed.data.name} was added.` }
 }
+
+// ---------------------------------------------------------------------------
+// Delete user
+// ---------------------------------------------------------------------------
+
+export type DeleteUserResult = {
+  ok: boolean
+  message: string
+  /** When a client still owns projects and no strategy was provided. */
+  needsStrategy?: boolean
+  projects?: { id: string; title: string; tasks: number; invoices: number }[]
+}
+
+/**
+ * Safely delete a user from the admin panel.
+ *
+ * - Staff (DEVELOPER/DESIGNER/ADMIN): deleted directly; assigned tasks become
+ *   unassigned (onDelete: SetNull).
+ * - Clients with no projects: deleted directly.
+ * - Clients with projects: the caller must choose a strategy:
+ *     • "reassign" + reassignToId  → move projects to another client first
+ *     • "cascade"                  → delete all projects (tasks/invoices cascade)
+ *   If no strategy is given the action returns the project list so the UI can
+ *   show a choice dialog.
+ */
+export async function deleteUser(
+  userId: string,
+  options?: {
+    strategy?: 'reassign' | 'cascade'
+    reassignToId?: string
+  }
+): Promise<DeleteUserResult> {
+  // --- Auth gate ---
+  let caller
+  try {
+    caller = await authorize(canManageUsers)
+  } catch (error) {
+    if (error instanceof ForbiddenError)
+      return { ok: false, message: error.message }
+    throw error
+  }
+
+  // --- Self-delete guard ---
+  if (caller.id === userId) {
+    return { ok: false, message: 'You cannot delete your own account.' }
+  }
+
+  // --- Look up the target user ---
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      clientProjects: {
+        select: {
+          id: true,
+          title: true,
+          _count: { select: { tasks: true, invoices: true } },
+        },
+      },
+    },
+  })
+
+  if (!user) return { ok: false, message: 'User not found.' }
+
+  // --- Last-admin guard ---
+  if (user.role === 'ADMIN') {
+    const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } })
+    if (adminCount <= 1) {
+      return {
+        ok: false,
+        message:
+          'This is the only admin account. Promote another user to admin before deleting this one.',
+      }
+    }
+  }
+
+  const projects = user.clientProjects
+
+  // --- Client with projects requires a strategy ---
+  if (projects.length > 0) {
+    const strategy = options?.strategy
+
+    if (!strategy) {
+      return {
+        ok: false,
+        needsStrategy: true,
+        message: `${user.name} owns ${projects.length} project(s). Choose how to handle them.`,
+        projects: projects.map((p) => ({
+          id: p.id,
+          title: p.title,
+          tasks: p._count.tasks,
+          invoices: p._count.invoices,
+        })),
+      }
+    }
+
+    if (strategy === 'reassign') {
+      const reassignToId = options?.reassignToId
+      if (!reassignToId) {
+        return { ok: false, message: 'Select a client to reassign projects to.' }
+      }
+      if (reassignToId === userId) {
+        return { ok: false, message: 'Cannot reassign projects to the same user.' }
+      }
+
+      const recipient = await prisma.user.findUnique({
+        where: { id: reassignToId },
+        select: { id: true, role: true },
+      })
+      if (!recipient) return { ok: false, message: 'Reassignment target not found.' }
+      if (recipient.role !== 'CLIENT') {
+        return {
+          ok: false,
+          message: 'Projects can only be reassigned to a user with the Client role.',
+        }
+      }
+
+      await prisma.project.updateMany({
+        where: { clientId: userId },
+        data: { clientId: reassignToId },
+      })
+    }
+
+    if (strategy === 'cascade') {
+      // Tasks and invoices cascade from Project via onDelete: Cascade
+      await prisma.project.deleteMany({ where: { clientId: userId } })
+    }
+  }
+
+  // --- Delete the user ---
+  await prisma.user.delete({ where: { id: userId } })
+
+  revalidatePath('/dashboard')
+  revalidatePath('/clients')
+  revalidatePath('/team')
+  revalidatePath('/projects')
+  revalidatePath('/tasks')
+
+  return { ok: true, message: `${user.name} has been deleted.` }
+}

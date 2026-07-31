@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Sign in' }
  */
 const DEMO_ACCOUNTS: { email: string; role: string }[] = [
   { email: 'abdulatef@parallax.agency', role: 'Developer' },
-  { email: 'sara@parallax.agency', role: 'Designer' },
+  { email: 'nova@parallax.agency', role: 'Designer' },
   { email: 'ops@helios-retail.com', role: 'Client' },
 ]
 

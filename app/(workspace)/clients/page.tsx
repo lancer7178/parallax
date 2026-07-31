@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { UserAvatar } from '@/components/user-avatar'
+import { UserActions } from '@/components/users/user-actions'
 import { UserDialog } from '@/components/users/user-dialog'
 import { requireRole } from '@/lib/dal'
 import { listClients } from '@/lib/queries'
@@ -67,6 +68,7 @@ async function ClientsTable() {
                   <TableHead>Email</TableHead>
                   <TableHead className="text-right">Projects</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead className="w-12 text-center" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -89,6 +91,12 @@ async function ClientsTable() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(client.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <UserActions 
+                        user={client} 
+                        otherClients={clients.filter((c) => c.id !== client.id)} 
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

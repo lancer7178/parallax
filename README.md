@@ -202,9 +202,39 @@ ships with a visible label, so state is never encoded by colour alone.
 | `npm run db:deploy` | Apply migrations (production) |
 | `npm run db:seed` | Seed demo data (idempotent) |
 | `npm run admin:password -- <email> [pw]` | Set or rotate an account password |
+| `npm run user:delete -- <email\|id>` | Delete a user safely (see below) |
 | `npm run db:studio` | Prisma Studio |
 
 ---
+
+## Deleting users
+
+Deleting a client straight from SQL fails:
+
+```
+update or delete on table "User" violates RESTRICT setting of
+foreign key constraint "Project_clientId_fkey" on table "Project"
+```
+
+That is the schema working as intended. `Project.clientId` is a **required**
+relation, which Prisma defaults to `onDelete: Restrict`, so a client cannot
+vanish while projects — and their paid invoices — still point at them.
+`Task.assigneeId` is **optional**, so it defaults to `onDelete: SetNull`: team
+members delete cleanly and their tasks simply become unassigned. Same DELETE,
+two outcomes, decided purely by whether the relation is optional.
+
+Use the script rather than raw SQL. It shows the cost before acting, refuses to
+remove the last remaining admin, and makes you state what should happen to the
+projects:
+
+```bash
+npm run user:delete -- <email|id>                          # report; deletes nothing if blocked
+npm run user:delete -- <email|id> --reassign-to <email>    # move projects to another CLIENT, then delete
+npm run user:delete -- <email|id> --with-projects          # delete their projects, tasks and invoices too
+```
+
+If the account is still listed in `prisma/seed.ts`, the next `npm run db:seed`
+recreates it — remove it there too to make the deletion stick.
 
 ## Known gaps
 
