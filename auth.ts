@@ -5,10 +5,6 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { loginSchema } from '@/lib/validation'
 
-export const SESSION_COOKIE = process.env.AUTH_URL?.startsWith('https://')
-  ? '__Secure-authjs.session-token'
-  : 'authjs.session-token'
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Credentials sign-in requires JWT sessions — there is no adapter-backed
   // session table in the schema.

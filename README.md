@@ -29,7 +29,7 @@ Open <http://localhost:3000>.
 | `DATABASE_URL`  | Neon **pooled** connection (host contains `-pooler`), used at runtime |
 | `DIRECT_URL`    | Neon **direct** connection, used by `prisma migrate` (pgBouncer can't run DDL in a transaction) |
 | `AUTH_SECRET`   | Signs the session JWT — `openssl rand -base64 32`               |
-| `AUTH_URL`      | Inferred in dev; set explicitly in production                   |
+| `AUTH_URL`      | Leave unset — inferred from the request `Host` header in dev and on every Vercel environment. Only set it if deploying behind something that doesn't forward a trustworthy `Host`, and then use the exact deployed origin (`https://your-app.example.com`), **never** a `localhost` value — a stray `localhost` here sends every sign-in/sign-out redirect to that literal URL instead of the real site |
 | `ADMIN_EMAIL`   | Used only to *create* the admin if it doesn't exist yet (default `admin@parallax.agency`) |
 | `ADMIN_NAME`    | Display name for that same bootstrap                            |
 | `ADMIN_PASSWORD`| Required the first time the admin is created; seeding fails loudly if unset |
