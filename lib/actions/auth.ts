@@ -41,5 +41,11 @@ export async function login(
 }
 
 export async function logout() {
-  await signOut({ redirectTo: '/login' })
+  // `redirect: false`, then our own relative `redirect()` — same pattern as
+  // `login()` above. Letting Auth.js redirect itself would build an absolute
+  // URL from `AUTH_URL` (falling back to the request host only when that env
+  // var is unset), so a misconfigured `AUTH_URL` sends every sign-out to that
+  // literal origin instead of wherever the app is actually running.
+  await signOut({ redirect: false })
+  redirect('/login')
 }
