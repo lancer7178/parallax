@@ -10,6 +10,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
+import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import { GoalsPanel } from '@/components/dashboard/goals-panel'
+import { TeamWorkload } from '@/components/dashboard/team-workload'
 import { InvoiceStatusChart } from '@/components/charts/invoice-status-chart'
 import { PipelineChart } from '@/components/charts/pipeline-chart'
 import { RevenueChart } from '@/components/charts/revenue-chart'
@@ -19,7 +22,12 @@ import { StatCard } from '@/components/stat-card'
 import { ProjectStatusBadge } from '@/components/status-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { requireRole, type SessionUser } from '@/lib/dal'
-import { getDashboardStats } from '@/lib/queries'
+import {
+  getDashboardStats,
+  getGoalProgress,
+  getTeamWorkload,
+  listRecentActivity,
+} from '@/lib/queries'
 import { canViewFinancials } from '@/lib/rbac'
 import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
 
@@ -50,7 +58,12 @@ export default async function DashboardPage() {
 }
 
 async function DashboardContent({ user }: { user: SessionUser }) {
-  const stats = await getDashboardStats(user)
+  const [stats, goals, workload, activity] = await Promise.all([
+    getDashboardStats(user),
+    getGoalProgress(user),
+    getTeamWorkload(user),
+    listRecentActivity(),
+  ])
   const showMoney = canViewFinancials(user.role)
 
   return (
@@ -174,6 +187,12 @@ async function DashboardContent({ user }: { user: SessionUser }) {
             )}
           </CardContent>
         </Card>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <GoalsPanel goals={goals} user={user} />
+        <TeamWorkload workload={workload} />
+        <ActivityFeed activity={activity} />
       </section>
     </div>
   )

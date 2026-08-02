@@ -21,6 +21,9 @@ export const canManageInvoices = (role: Role) => role === 'ADMIN'
 
 export const canManageUsers = (role: Role) => role === 'ADMIN'
 
+/** KPI targets shown on the dashboard are an agency-wide setting. */
+export const canManageGoals = (role: Role) => role === 'ADMIN'
+
 /** Where a user lands after signing in. */
 export const homePathFor = (role: Role) =>
   role === 'CLIENT' ? '/portal' : '/dashboard'

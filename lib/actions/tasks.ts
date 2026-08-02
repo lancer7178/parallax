@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 
+import { logActivity } from '@/lib/activity'
 import { authorize, ForbiddenError } from '@/lib/dal'
 import { prisma } from '@/lib/prisma'
 import { canReachProject } from '@/lib/queries'
@@ -84,7 +85,18 @@ export async function updateTask(
     return { ok: false, message: 'Project not found.' }
   }
 
+  const before = await prisma.task.findUnique({ where: { id }, select: { status: true } })
+
   await prisma.task.update({ where: { id }, data: parsed.data })
+
+  if (before && before.status !== 'DONE' && parsed.data.status === 'DONE') {
+    await logActivity({
+      type: 'TASK_COMPLETED',
+      message: `${parsed.data.title} was completed.`,
+      actorId: user.id,
+      projectId: parsed.data.projectId,
+    })
+  }
 
   revalidateTaskViews(parsed.data.projectId)
   return { ok: true, message: 'Task updated.' }
@@ -102,7 +114,7 @@ export async function moveTask(input: { taskId: string; status: string }) {
 
   const task = await prisma.task.findUnique({
     where: { id: parsed.data.taskId },
-    select: { projectId: true },
+    select: { projectId: true, status: true, title: true },
   })
   if (!task) throw new Error('Task not found.')
 
@@ -114,6 +126,15 @@ export async function moveTask(input: { taskId: string; status: string }) {
     where: { id: parsed.data.taskId },
     data: { status: parsed.data.status },
   })
+
+  if (task.status !== 'DONE' && parsed.data.status === 'DONE') {
+    await logActivity({
+      type: 'TASK_COMPLETED',
+      message: `${task.title} was completed.`,
+      actorId: user.id,
+      projectId: task.projectId,
+    })
+  }
 
   revalidateTaskViews(task.projectId)
 }

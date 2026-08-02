@@ -163,6 +163,11 @@ export const accountSchema = z.object({
     ),
 })
 
+/** One target value per `GOAL_DEFS` key, submitted as `goal:<key>` fields. */
+export const goalTargetSchema = z.coerce
+  .number({ error: 'Enter a valid number.' })
+  .positive({ error: 'Target must be greater than zero.' })
+
 export type FormState = {
   ok?: boolean
   message?: string

@@ -3,6 +3,7 @@ import 'server-only'
 import type { Prisma, ProjectStatus } from '@prisma/client'
 import { cache } from 'react'
 
+import { GOAL_DEFS } from '@/lib/constants'
 import type { SessionUser } from '@/lib/dal'
 import { prisma } from '@/lib/prisma'
 import { canViewFinancials } from '@/lib/rbac'
@@ -327,3 +328,150 @@ export async function getDashboardStats(
     upcomingDeadlines,
   }
 }
+
+// --- Goals -------------------------------------------------------------
+
+export type GoalProgress = {
+  key: string
+  label: string
+  format: 'currency' | 'number' | 'percent'
+  current: number
+  target: number
+}
+
+/**
+ * Merges the fixed `GOAL_DEFS` list with whatever admin-set targets exist in
+ * the `Goal` table (falling back to `defaultTarget` for goals nobody has
+ * edited yet) and computes each goal's current value live. Revenue is
+ * omitted for roles that can't see financials, same as the rest of the
+ * dashboard.
+ */
+export async function getGoalProgress(user: SessionUser): Promise<GoalProgress[]> {
+  const scope = projectScope(user)
+  const showMoney = canViewFinancials(user.role)
+
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+  const [goalRows, monthlyRevenue, activeProjects, taskGroups] = await Promise.all([
+    prisma.goal.findMany(),
+    showMoney
+      ? prisma.invoice.aggregate({
+          where: {
+            project: scope,
+            status: 'PAID',
+            dueDate: { gte: monthStart, lt: monthEnd },
+          },
+          _sum: { amount: true },
+        })
+      : Promise.resolve(null),
+    prisma.project.count({ where: { ...scope, status: 'ACTIVE' } }),
+    prisma.task.groupBy({
+      by: ['status'],
+      where: { project: scope },
+      _count: { _all: true },
+    }),
+  ])
+
+  const targetFor = (key: string) =>
+    goalRows.find((g) => g.key === key)?.targetValue ??
+    GOAL_DEFS.find((d) => d.key === key)!.defaultTarget
+
+  const totalTasks = taskGroups.reduce((sum, g) => sum + g._count._all, 0)
+  const doneTasks = taskGroups.find((g) => g.status === 'DONE')?._count._all ?? 0
+  const completionRate =
+    totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
+
+  const progress: GoalProgress[] = []
+
+  if (showMoney) {
+    progress.push({
+      key: 'MONTHLY_REVENUE',
+      label: GOAL_DEFS.find((d) => d.key === 'MONTHLY_REVENUE')!.label,
+      format: 'currency',
+      current: monthlyRevenue?._sum.amount ?? 0,
+      target: targetFor('MONTHLY_REVENUE'),
+    })
+  }
+
+  progress.push({
+    key: 'ACTIVE_PROJECTS',
+    label: GOAL_DEFS.find((d) => d.key === 'ACTIVE_PROJECTS')!.label,
+    format: 'number',
+    current: activeProjects,
+    target: targetFor('ACTIVE_PROJECTS'),
+  })
+
+  progress.push({
+    key: 'TASK_COMPLETION_RATE',
+    label: GOAL_DEFS.find((d) => d.key === 'TASK_COMPLETION_RATE')!.label,
+    format: 'percent',
+    current: completionRate,
+    target: targetFor('TASK_COMPLETION_RATE'),
+  })
+
+  return progress
+}
+
+// --- Team workload -------------------------------------------------------
+
+export type WorkloadRow = {
+  id: string
+  name: string
+  avatarUrl: string | null
+  role: 'ADMIN' | 'DEVELOPER' | 'DESIGNER'
+  openTasks: number
+  inProgressTasks: number
+}
+
+/** Open (non-DONE) task load per staff member, busiest first. */
+export async function getTeamWorkload(user: SessionUser): Promise<WorkloadRow[]> {
+  const scope = projectScope(user)
+
+  const staff = await prisma.user.findMany({
+    where: { role: { not: 'CLIENT' } },
+    select: {
+      id: true,
+      name: true,
+      avatarUrl: true,
+      role: true,
+      assignedTasks: {
+        where: { status: { not: 'DONE' }, project: scope },
+        select: { status: true },
+      },
+    },
+    orderBy: { name: 'asc' },
+  })
+
+  return staff
+    .map((person) => ({
+      id: person.id,
+      name: person.name,
+      avatarUrl: person.avatarUrl,
+      role: person.role as WorkloadRow['role'],
+      openTasks: person.assignedTasks.length,
+      inProgressTasks: person.assignedTasks.filter(
+        (t) => t.status === 'IN_PROGRESS'
+      ).length,
+    }))
+    .sort((a, b) => b.openTasks - a.openTasks)
+}
+
+// --- Activity feed ---------------------------------------------------------
+
+export async function listRecentActivity(limit = 8) {
+  return prisma.activity.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      type: true,
+      message: true,
+      createdAt: true,
+      actor: { select: { id: true, name: true, avatarUrl: true } },
+    },
+  })
+}
+
+export type ActivityRow = Awaited<ReturnType<typeof listRecentActivity>>[number]

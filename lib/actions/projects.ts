@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+import { logActivity } from '@/lib/activity'
 import { authorize, ForbiddenError } from '@/lib/dal'
 import { prisma } from '@/lib/prisma'
 import { canManageProjects } from '@/lib/rbac'
@@ -30,8 +31,9 @@ export async function createProject(
   _prev: FormState | undefined,
   formData: FormData
 ): Promise<FormState> {
+  let user
   try {
-    await authorize(canManageProjects)
+    user = await authorize(canManageProjects)
   } catch (error) {
     if (error instanceof ForbiddenError) return { ok: false, message: error.message }
     throw error
@@ -50,7 +52,14 @@ export async function createProject(
 
   const project = await prisma.project.create({
     data: parsed.data,
-    select: { id: true },
+    select: { id: true, title: true },
+  })
+
+  await logActivity({
+    type: 'PROJECT_CREATED',
+    message: `${project.title} was created.`,
+    actorId: user.id,
+    projectId: project.id,
   })
 
   revalidateProjectViews(project.id)
@@ -61,8 +70,9 @@ export async function updateProject(
   _prev: FormState | undefined,
   formData: FormData
 ): Promise<FormState> {
+  let user
   try {
-    await authorize(canManageProjects)
+    user = await authorize(canManageProjects)
   } catch (error) {
     if (error instanceof ForbiddenError) return { ok: false, message: error.message }
     throw error
@@ -76,7 +86,25 @@ export async function updateProject(
   const parsed = projectSchema.safeParse(fields(formData))
   if (!parsed.success) return toFormState(parsed.error)
 
-  await prisma.project.update({ where: { id }, data: parsed.data })
+  const before = await prisma.project.findUnique({
+    where: { id },
+    select: { status: true },
+  })
+
+  const project = await prisma.project.update({
+    where: { id },
+    data: parsed.data,
+    select: { title: true },
+  })
+
+  if (before && before.status !== 'COMPLETED' && parsed.data.status === 'COMPLETED') {
+    await logActivity({
+      type: 'PROJECT_COMPLETED',
+      message: `${project.title} was marked complete.`,
+      actorId: user.id,
+      projectId: id,
+    })
+  }
 
   revalidateProjectViews(id)
   return { ok: true, message: 'Project updated.' }

@@ -40,6 +40,15 @@ enum InvoiceStatus {
   OVERDUE
 }
 
+enum ActivityType {
+  PROJECT_CREATED
+  PROJECT_COMPLETED
+  TASK_COMPLETED
+  INVOICE_CREATED
+  INVOICE_PAID
+  USER_JOINED
+}
+
 // --- Models ---
 
 model User {
@@ -55,6 +64,7 @@ model User {
 
   clientProjects Project[] @relation("ClientProjects")
   assignedTasks  Task[]    @relation("AssignedTasks")
+  activities     Activity[]
 }
 
 model Project {
@@ -71,8 +81,9 @@ model Project {
   clientId String
   client   User   @relation("ClientProjects", fields: [clientId], references: [id])
 
-  tasks    Task[]
-  invoices Invoice[]
+  tasks      Task[]
+  invoices   Invoice[]
+  activities Activity[]
 
   @@index([clientId])
   @@index([status])
@@ -113,4 +124,40 @@ model Invoice {
 
   @@index([projectId])
   @@index([status])
+}
+
+/**
+ * Agency-wide KPI targets (monthly revenue, active projects, task
+ * completion rate, ...). One row per metric, admin-editable from the
+ * dashboard. Actual values are computed live from Project/Task/Invoice —
+ * only the target is stored.
+ */
+model Goal {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  label       String
+  targetValue Float
+
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Append-only log of notable events, rendered as the dashboard's activity
+ * feed. Entries are never edited, only created by the actions that cause
+ * them and pruned by age (see `logActivity`).
+ */
+model Activity {
+  id      String       @id @default(uuid())
+  type    ActivityType
+  message String
+
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

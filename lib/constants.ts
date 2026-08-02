@@ -103,3 +103,38 @@ export const INVOICE_STATUS_COLOR: Record<InvoiceStatus, string> = {
   PAID: 'var(--success)',
   OVERDUE: 'var(--destructive)',
 }
+
+/**
+ * The fixed set of agency-wide KPI targets shown on the dashboard's Goals
+ * panel. `key` is the `Goal.key` row in the database — the seed creates one
+ * row per entry here with `defaultTarget`, and admins edit `targetValue`
+ * from there. Adding an entry here requires a matching case in
+ * `getDashboardStats` to compute its current value.
+ */
+export const GOAL_DEFS = [
+  {
+    key: 'MONTHLY_REVENUE',
+    label: 'Monthly revenue',
+    defaultTarget: 60_000,
+    format: 'currency',
+  },
+  {
+    key: 'ACTIVE_PROJECTS',
+    label: 'Active projects',
+    defaultTarget: 6,
+    format: 'number',
+  },
+  {
+    key: 'TASK_COMPLETION_RATE',
+    label: 'Task completion rate',
+    defaultTarget: 75,
+    format: 'percent',
+  },
+] as const satisfies readonly {
+  key: string
+  label: string
+  defaultTarget: number
+  format: 'currency' | 'number' | 'percent'
+}[]
+
+export type GoalKey = (typeof GOAL_DEFS)[number]['key']

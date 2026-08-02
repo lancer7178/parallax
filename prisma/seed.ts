@@ -1,4 +1,5 @@
 import {
+  ActivityType,
   InvoiceStatus,
   PrismaClient,
   ProjectStatus,
@@ -6,6 +7,8 @@ import {
   TaskStatus,
 } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+
+import { GOAL_DEFS } from '../lib/constants'
 
 const prisma = new PrismaClient()
 
@@ -35,6 +38,13 @@ function offsetDays(days: number) {
   return date
 }
 
+/** Date `days` from today, backdated further for activity log timestamps. */
+function activityTime(daysAgo: number) {
+  const date = new Date()
+  date.setDate(date.getDate() - daysAgo)
+  return date
+}
+
 async function main() {
   // --- Private admin ------------------------------------------------------
   const existingAdmin = await prisma.user.findUnique({
@@ -49,7 +59,7 @@ async function main() {
     )
   }
 
-  await prisma.user.upsert({
+  const admin = await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
     // Never reset the password of an admin that already exists.
     update: { name: ADMIN_NAME, role: Role.ADMIN },
@@ -79,12 +89,18 @@ async function main() {
     { name: 'Lina Botros', email: 'lina@parallax.agency', role: Role.DEVELOPER },
     { name: 'sara ahmed', email: 'sara@parallax.agency', role: Role.DESIGNER },
     { name: 'Karim Saleh', email: 'karim@parallax.agency', role: Role.DESIGNER },
+    { name: 'Omar Nabil', email: 'omar@parallax.agency', role: Role.DEVELOPER },
+    { name: 'Yasmine Adel', email: 'yasmine@parallax.agency', role: Role.DESIGNER },
+    { name: 'Tarek Hassan', email: 'tarek@parallax.agency', role: Role.DEVELOPER },
   ]
 
   const clients: DemoUser[] = [
     { name: 'Helios Retail', email: 'ops@helios-retail.com', role: Role.CLIENT },
     { name: 'Northwind Labs', email: 'hello@northwindlabs.io', role: Role.CLIENT },
     { name: 'Meridian Health', email: 'it@meridianhealth.co', role: Role.CLIENT },
+    { name: 'Atlas Finance', email: 'projects@atlasfinance.com', role: Role.CLIENT },
+    { name: 'Borealis Media', email: 'team@borealismedia.tv', role: Role.CLIENT },
+    { name: 'Crestview Realty', email: 'ops@crestviewrealty.com', role: Role.CLIENT },
   ]
 
   for (const user of [...team, ...clients]) {
@@ -103,16 +119,17 @@ async function main() {
   const byEmail = async (email: string) =>
     prisma.user.findUniqueOrThrow({ where: { email } })
 
-  const [abdulatef, lina, sara, karim] = await Promise.all(
+  const [abdulatef, lina, sara, karim, omar, yasmine, tarek] = await Promise.all(
     team.map((u) => byEmail(u.email))
   )
-  const [helios, northwind, meridian] = await Promise.all(
-    clients.map((c) => byEmail(c.email))
-  )
+  const [helios, northwind, meridian, atlas, borealis, crestview] =
+    await Promise.all(clients.map((c) => byEmail(c.email)))
 
   // Re-seeding should be idempotent, so clear project-scoped data first.
-  // Tasks and invoices cascade from Project.
+  // Tasks and invoices cascade from Project. Activity references projects
+  // and users via SetNull, so it survives the wipe and is reseeded fresh.
   await prisma.project.deleteMany()
+  await prisma.activity.deleteMany()
 
   // --- Projects -----------------------------------------------------------
   const projects = [
@@ -192,23 +209,193 @@ async function main() {
         { amount: 19_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-45) },
       ],
     },
+    {
+      title: 'Atlas Trading Dashboard',
+      description:
+        'Real-time trading dashboard rebuild with live market data feeds and risk alerts.',
+      status: ProjectStatus.ACTIVE,
+      deadline: offsetDays(35),
+      budget: 265_000,
+      clientId: atlas.id,
+      tasks: [
+        { title: 'Market data websocket layer', status: TaskStatus.DONE, priority: 3, assigneeId: omar.id },
+        { title: 'Positions table virtualization', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: tarek.id },
+        { title: 'Risk alert rules engine', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: omar.id },
+        { title: 'Dashboard layout system', status: TaskStatus.DONE, priority: 2, assigneeId: yasmine.id },
+        { title: 'Dark-mode chart theming', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: yasmine.id },
+        { title: 'Latency monitoring', status: TaskStatus.TODO, priority: 2, assigneeId: tarek.id },
+        { title: 'Penetration test remediation', status: TaskStatus.TODO, priority: 3, assigneeId: null },
+      ],
+      invoices: [
+        { amount: 88_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-90) },
+        { amount: 88_000, status: InvoiceStatus.PAID, dueDate: offsetDays(0) },
+        { amount: 89_000, status: InvoiceStatus.PENDING, dueDate: offsetDays(25) },
+      ],
+    },
+    {
+      title: 'Atlas Compliance Reporting',
+      description:
+        'Automated regulatory reporting pipeline for quarterly filings.',
+      status: ProjectStatus.PLANNING,
+      deadline: offsetDays(110),
+      budget: 96_000,
+      clientId: atlas.id,
+      tasks: [
+        { title: 'Regulatory requirements matrix', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: omar.id },
+        { title: 'Report template drafts', status: TaskStatus.TODO, priority: 1, assigneeId: yasmine.id },
+        { title: 'Data warehouse export spike', status: TaskStatus.TODO, priority: 2, assigneeId: tarek.id },
+      ],
+      invoices: [
+        { amount: 24_000, status: InvoiceStatus.DRAFT, dueDate: offsetDays(40) },
+      ],
+    },
+    {
+      title: 'Borealis Streaming App',
+      description:
+        'Cross-platform streaming client with offline downloads and adaptive bitrate playback.',
+      status: ProjectStatus.ACTIVE,
+      deadline: offsetDays(60),
+      budget: 178_000,
+      clientId: borealis.id,
+      tasks: [
+        { title: 'Adaptive bitrate player', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: lina.id },
+        { title: 'Offline download queue', status: TaskStatus.TODO, priority: 2, assigneeId: abdulatef.id },
+        { title: 'Playback UI redesign', status: TaskStatus.DONE, priority: 2, assigneeId: karim.id },
+        { title: 'Content recommendation carousel', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: sara.id },
+        { title: 'Chromecast support', status: TaskStatus.TODO, priority: 1, assigneeId: null },
+      ],
+      invoices: [
+        { amount: 59_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-30) },
+        { amount: 59_000, status: InvoiceStatus.PENDING, dueDate: offsetDays(5) },
+      ],
+    },
+    {
+      title: 'Borealis Brand Refresh',
+      description: 'New visual identity, style guide and marketing site.',
+      status: ProjectStatus.COMPLETED,
+      deadline: offsetDays(-55),
+      budget: 41_000,
+      clientId: borealis.id,
+      tasks: [
+        { title: 'Logo + wordmark exploration', status: TaskStatus.DONE, priority: 2, assigneeId: yasmine.id },
+        { title: 'Marketing site build', status: TaskStatus.DONE, priority: 2, assigneeId: tarek.id },
+        { title: 'Brand guidelines PDF', status: TaskStatus.DONE, priority: 1, assigneeId: yasmine.id },
+      ],
+      invoices: [
+        { amount: 20_500, status: InvoiceStatus.PAID, dueDate: offsetDays(-120) },
+        { amount: 20_500, status: InvoiceStatus.PAID, dueDate: offsetDays(-85) },
+      ],
+    },
+    {
+      title: 'Crestview Listings Platform',
+      description:
+        'Property listings marketplace with map search, saved searches and agent messaging.',
+      status: ProjectStatus.IN_REVIEW,
+      deadline: offsetDays(9),
+      budget: 132_000,
+      clientId: crestview.id,
+      tasks: [
+        { title: 'Map search performance pass', status: TaskStatus.IN_REVIEW, priority: 3, assigneeId: abdulatef.id },
+        { title: 'Saved search notifications', status: TaskStatus.DONE, priority: 2, assigneeId: omar.id },
+        { title: 'Agent messaging inbox', status: TaskStatus.IN_PROGRESS, priority: 2, assigneeId: lina.id },
+        { title: 'Listing card redesign', status: TaskStatus.DONE, priority: 1, assigneeId: karim.id },
+        { title: 'SEO metadata pass', status: TaskStatus.TODO, priority: 1, assigneeId: sara.id },
+      ],
+      invoices: [
+        { amount: 44_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-50) },
+        { amount: 44_000, status: InvoiceStatus.OVERDUE, dueDate: offsetDays(-4) },
+        { amount: 44_000, status: InvoiceStatus.PENDING, dueDate: offsetDays(20) },
+      ],
+    },
   ]
 
+  const createdProjects: Record<string, { id: string }> = {}
   for (const { tasks, invoices, ...project } of projects) {
-    await prisma.project.create({
+    const created = await prisma.project.create({
       data: {
         ...project,
         tasks: { create: tasks },
         invoices: { create: invoices },
       },
+      select: { id: true },
+    })
+    createdProjects[project.title] = created
+  }
+
+  // --- Goals ---------------------------------------------------------------
+  // Seeded once with the default target from GOAL_DEFS; admins can move these
+  // from the dashboard afterward without the seed ever overwriting an edit.
+  for (const def of GOAL_DEFS) {
+    await prisma.goal.upsert({
+      where: { key: def.key },
+      update: {},
+      create: { key: def.key, label: def.label, targetValue: def.defaultTarget },
     })
   }
+
+  // --- Activity feed ---------------------------------------------------------
+  // A short backdated history so the dashboard's feed isn't empty on first
+  // run — real usage appends to this going forward via `logActivity`.
+  await prisma.activity.createMany({
+    data: [
+      {
+        type: ActivityType.PROJECT_CREATED,
+        message: 'Atlas Trading Dashboard was created.',
+        actorId: admin.id,
+        projectId: createdProjects['Atlas Trading Dashboard']!.id,
+        createdAt: activityTime(2),
+      },
+      {
+        type: ActivityType.TASK_COMPLETED,
+        message: 'Market data websocket layer was completed.',
+        actorId: omar.id,
+        projectId: createdProjects['Atlas Trading Dashboard']!.id,
+        createdAt: activityTime(1),
+      },
+      {
+        type: ActivityType.INVOICE_PAID,
+        message: '$88,000 invoice paid for Atlas Trading Dashboard.',
+        actorId: admin.id,
+        projectId: createdProjects['Atlas Trading Dashboard']!.id,
+        createdAt: activityTime(0),
+      },
+      {
+        type: ActivityType.TASK_COMPLETED,
+        message: 'Saved search notifications was completed.',
+        actorId: omar.id,
+        projectId: createdProjects['Crestview Listings Platform']!.id,
+        createdAt: activityTime(3),
+      },
+      {
+        type: ActivityType.PROJECT_COMPLETED,
+        message: 'Borealis Brand Refresh was marked complete.',
+        actorId: admin.id,
+        projectId: createdProjects['Borealis Brand Refresh']!.id,
+        createdAt: activityTime(6),
+      },
+      {
+        type: ActivityType.USER_JOINED,
+        message: 'Tarek Hassan joined as developer.',
+        actorId: admin.id,
+        createdAt: activityTime(9),
+      },
+      {
+        type: ActivityType.INVOICE_CREATED,
+        message: '$44,000 invoice created for Crestview Listings Platform.',
+        actorId: admin.id,
+        projectId: createdProjects['Crestview Listings Platform']!.id,
+        createdAt: activityTime(12),
+      },
+    ],
+  })
 
   const counts = {
     users: await prisma.user.count(),
     projects: await prisma.project.count(),
     tasks: await prisma.task.count(),
     invoices: await prisma.invoice.count(),
+    goals: await prisma.goal.count(),
+    activity: await prisma.activity.count(),
   }
 
   console.log('Seed complete:', counts)

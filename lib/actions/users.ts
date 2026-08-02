@@ -3,6 +3,7 @@
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
 
+import { logActivity } from '@/lib/activity'
 import { authorize, ForbiddenError } from '@/lib/dal'
 import { prisma } from '@/lib/prisma'
 import { canManageUsers } from '@/lib/rbac'
@@ -17,8 +18,9 @@ export async function createUser(
   _prev: FormState | undefined,
   formData: FormData
 ): Promise<FormState> {
+  let caller
   try {
-    await authorize(canManageUsers)
+    caller = await authorize(canManageUsers)
   } catch (error) {
     if (error instanceof ForbiddenError) return { ok: false, message: error.message }
     throw error
@@ -51,6 +53,13 @@ export async function createUser(
     },
   })
 
+  await logActivity({
+    type: 'USER_JOINED',
+    message: `${parsed.data.name} joined as ${parsed.data.role.toLowerCase()}.`,
+    actorId: caller.id,
+  })
+
+  revalidatePath('/dashboard')
   revalidatePath('/clients')
   revalidatePath('/team')
   return { ok: true, message: `${parsed.data.name} was added.` }

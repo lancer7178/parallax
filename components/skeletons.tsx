@@ -57,6 +57,14 @@ export function DashboardFallback() {
             <Skeleton className="h-64 w-full" />
           </Card>
         </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Card key={i} className="space-y-4 p-5">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-32 w-full" />
+            </Card>
+          ))}
+        </div>
       </div>
     </Busy>
   )
