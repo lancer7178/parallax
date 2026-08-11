@@ -1,4 +1,9 @@
-import type { InvoiceStatus, ProjectStatus, TaskStatus } from '@prisma/client'
+import type {
+  ApprovalStatus,
+  InvoiceStatus,
+  ProjectStatus,
+  TaskStatus,
+} from '@prisma/client'
 
 // Type-only Prisma import — see the note in `lib/rbac.ts`.
 
@@ -44,6 +49,18 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   OVERDUE: 'Overdue',
 }
 
+export const APPROVAL_STATUSES = [
+  'PENDING',
+  'APPROVED',
+  'CHANGES_REQUESTED',
+] as const satisfies readonly ApprovalStatus[]
+
+export const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, string> = {
+  PENDING: 'Awaiting approval',
+  APPROVED: 'Approved',
+  CHANGES_REQUESTED: 'Changes requested',
+}
+
 export const PRIORITY_LABELS: Record<number, string> = {
   1: 'Low',
   2: 'Medium',
@@ -79,6 +96,15 @@ export const TASK_STATUS_TONE: Record<
   IN_PROGRESS: 'info',
   IN_REVIEW: 'warning',
   DONE: 'success',
+}
+
+export const APPROVAL_STATUS_TONE: Record<
+  ApprovalStatus,
+  'info' | 'warning' | 'success'
+> = {
+  PENDING: 'info',
+  APPROVED: 'success',
+  CHANGES_REQUESTED: 'warning',
 }
 
 /**

@@ -4,7 +4,12 @@ import * as React from 'react'
 import { useActionState } from 'react'
 import { toast } from 'sonner'
 
-import { FieldError, FormMessage, SubmitButton } from '@/components/form-parts'
+import {
+  FieldError,
+  FormMessage,
+  selectClass,
+  SubmitButton,
+} from '@/components/form-parts'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,6 +29,7 @@ import {
   TASK_STATUS_LABELS,
 } from '@/lib/constants'
 import type { ProjectTask } from '@/lib/queries'
+import { toDateInput } from '@/lib/utils'
 import type { FormState } from '@/lib/validation'
 
 export type Assignee = { id: string; name: string; role: string }
@@ -107,7 +113,7 @@ export function TaskDialog({
                 id="task-status"
                 name="status"
                 defaultValue={task?.status ?? 'TODO'}
-                className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25"
+                className={selectClass}
               >
                 {TASK_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -123,7 +129,7 @@ export function TaskDialog({
                 id="task-priority"
                 name="priority"
                 defaultValue={String(task?.priority ?? 1)}
-                className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25"
+                className={selectClass}
               >
                 {[1, 2, 3].map((value) => (
                   <option key={value} value={value}>
@@ -139,7 +145,7 @@ export function TaskDialog({
                 id="task-assignee"
                 name="assigneeId"
                 defaultValue={task?.assignee?.id ?? ''}
-                className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25"
+                className={selectClass}
               >
                 <option value="">Unassigned</option>
                 {assignees.map((person) => (
@@ -150,6 +156,23 @@ export function TaskDialog({
               </select>
               <FieldError messages={state?.errors?.assigneeId} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="task-due-date">Due date</Label>
+            <Input
+              id="task-due-date"
+              name="dueDate"
+              type="date"
+              defaultValue={toDateInput(task?.dueDate)}
+              aria-describedby="task-due-date-hint"
+              aria-invalid={Boolean(state?.errors?.dueDate)}
+            />
+            <p id="task-due-date-hint" className="text-xs text-muted-foreground">
+              Optional. Dated tasks appear in the attention centre when they
+              slip.
+            </p>
+            <FieldError messages={state?.errors?.dueDate} />
           </div>
 
           {state?.message && !state.ok ? (

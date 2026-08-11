@@ -10,12 +10,25 @@ export function StatusFilter({
   basePath,
   current,
   options,
+  /** Other active filters, preserved so the rows compose instead of resetting. */
+  keep,
 }: {
   basePath: string
   current: string
   options: { value: string; label: string }[]
+  keep?: Record<string, string | undefined>
 }) {
   const all = [{ value: 'ALL', label: 'All' }, ...options]
+
+  const hrefFor = (value: string) => {
+    const params = new URLSearchParams()
+    for (const [key, entry] of Object.entries(keep ?? {})) {
+      if (entry) params.set(key, entry)
+    }
+    if (value !== 'ALL') params.set('status', value)
+    const search = params.toString()
+    return search ? `${basePath}?${search}` : basePath
+  }
 
   return (
     <nav
@@ -24,10 +37,7 @@ export function StatusFilter({
     >
       {all.map((option) => {
         const active = current === option.value
-        const href =
-          option.value === 'ALL'
-            ? basePath
-            : `${basePath}?status=${option.value}`
+        const href = hrefFor(option.value)
 
         return (
           <Link

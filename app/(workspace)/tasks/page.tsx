@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { KanbanSquareIcon } from 'lucide-react'
+import { AlertTriangleIcon, KanbanSquareIcon } from 'lucide-react'
 import Link from 'next/link'
 import { Suspense } from 'react'
 
@@ -19,6 +19,7 @@ import {
 import { UserAvatar } from '@/components/user-avatar'
 import { TASK_STATUSES, TASK_STATUS_LABELS } from '@/lib/constants'
 import { requireRole, type SessionUser } from '@/lib/dal'
+import { isTaskDueToday, isTaskOverdue } from '@/lib/health'
 import { listTasks } from '@/lib/queries'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -28,14 +29,18 @@ export default async function TasksPage(props: PageProps<'/tasks'>) {
   // Gate before streaming so the redirect stays a real 307.
   const user = await requireRole('ADMIN', 'DEVELOPER', 'DESIGNER')
 
-  const { status, assignee } = await props.searchParams
+  const { status, assignee, due } = await props.searchParams
   const currentStatus = typeof status === 'string' ? status : 'ALL'
   const mineOnly = assignee === 'me'
+  // `due` arrives from the dashboard's attention items, which deep-link here.
+  const currentDue =
+    due === 'overdue' || due === 'today' ? (due as string) : undefined
 
   const query = (next: Record<string, string | undefined>) => {
     const params = new URLSearchParams()
     if (currentStatus !== 'ALL') params.set('status', currentStatus)
     if (mineOnly) params.set('assignee', 'me')
+    if (currentDue) params.set('due', currentDue)
     for (const [key, value] of Object.entries(next)) {
       if (value === undefined) params.delete(key)
       else params.set(key, value)
@@ -43,6 +48,12 @@ export default async function TasksPage(props: PageProps<'/tasks'>) {
     const search = params.toString()
     return search ? `/tasks?${search}` : '/tasks'
   }
+
+  const DUE_FILTERS = [
+    { value: undefined, label: 'Any date' },
+    { value: 'today', label: 'Due today' },
+    { value: 'overdue', label: 'Overdue' },
+  ] as const
 
   return (
     <>
@@ -59,7 +70,32 @@ export default async function TasksPage(props: PageProps<'/tasks'>) {
             value,
             label: TASK_STATUS_LABELS[value],
           }))}
+          keep={{ assignee: mineOnly ? 'me' : undefined, due: currentDue }}
         />
+
+        <nav
+          aria-label="Filter by due date"
+          className="flex items-center gap-1 rounded-lg border border-border bg-card p-1"
+        >
+          {DUE_FILTERS.map((option) => {
+            const active = currentDue === option.value
+            return (
+              <Link
+                key={option.label}
+                href={query({ due: option.value })}
+                aria-current={active ? 'true' : undefined}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-primary/12 text-primary'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                {option.label}
+              </Link>
+            )
+          })}
+        </nav>
 
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
           <Link
@@ -88,13 +124,14 @@ export default async function TasksPage(props: PageProps<'/tasks'>) {
       </div>
 
       <Suspense
-        key={`${currentStatus}:${mineOnly}`}
+        key={`${currentStatus}:${mineOnly}:${currentDue ?? 'any'}`}
         fallback={<TableFallback rows={8} />}
       >
         <TasksTable
           user={user}
           status={currentStatus}
           mineOnly={mineOnly}
+          due={currentDue}
         />
       </Suspense>
     </>
@@ -105,14 +142,17 @@ async function TasksTable({
   user,
   status,
   mineOnly,
+  due,
 }: {
   user: SessionUser
   status: string
   mineOnly: boolean
+  due?: string
 }) {
   const tasks = await listTasks(user, {
     status,
     assignee: mineOnly ? 'me' : 'all',
+    due,
   })
 
   return (
@@ -134,7 +174,7 @@ async function TasksTable({
                   <TableHead>Assignee</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead>Stage</TableHead>
-                  <TableHead>Updated</TableHead>
+                  <TableHead>Due</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -178,8 +218,26 @@ async function TasksTable({
                     <TableCell>
                       <TaskStatusBadge status={task.status} />
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(task.updatedAt)}
+                    <TableCell className="text-sm">
+                      {task.dueDate ? (
+                        <span
+                          className={cn(
+                            'flex items-center gap-1.5',
+                            isTaskOverdue(task)
+                              ? 'font-medium text-destructive'
+                              : isTaskDueToday(task)
+                                ? 'font-medium text-warning'
+                                : 'text-muted-foreground'
+                          )}
+                        >
+                          {isTaskOverdue(task) ? (
+                            <AlertTriangleIcon className="size-3.5" />
+                          ) : null}
+                          {formatDate(task.dueDate)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

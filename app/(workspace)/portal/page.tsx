@@ -8,6 +8,7 @@ import {
 import Link from 'next/link'
 import { Suspense } from 'react'
 
+import { AttentionCenter } from '@/components/dashboard/attention-center'
 import { EmptyState, PageHeader } from '@/components/page-header'
 import { DashboardFallback } from '@/components/skeletons'
 import { ProjectCard } from '@/components/projects/project-card'
@@ -24,8 +25,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { requireRole, type SessionUser } from '@/lib/dal'
-import { getDashboardStats, listInvoices, listProjects } from '@/lib/queries'
-import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
+import { invoiceReference, isInvoiceLate } from '@/lib/finance'
+import {
+  getAttentionItems,
+  getDashboardStats,
+  listInvoices,
+  listProjects,
+} from '@/lib/queries'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Your projects' }
 
@@ -37,7 +44,7 @@ export default async function PortalPage() {
     <>
       <PageHeader
         title={`Welcome, ${user.name}`}
-        description="Track delivery progress and billing for your engagements."
+        description="Progress, approvals and billing for your engagements."
       />
 
       <Suspense fallback={<DashboardFallback />}>
@@ -47,26 +54,32 @@ export default async function PortalPage() {
   )
 }
 
+/**
+ * The client's whole product.
+ *
+ * Deliberately thinner than the agency dashboard: progress, what is waiting on
+ * them, and what they owe. Every query below is scoped to this client by the
+ * data layer, so there is no internal task, note or margin to leak here.
+ */
 async function PortalContent({ user }: { user: SessionUser }) {
-  const [projects, invoices, stats] = await Promise.all([
+  const [projects, invoices, stats, attention] = await Promise.all([
     listProjects(user),
     listInvoices(user),
     getDashboardStats(user),
+    getAttentionItems(user),
   ])
 
   const active = projects.filter(
     (project) => project.status !== 'COMPLETED'
   ).length
 
-  const allTasks = projects.flatMap((project) => project.tasks)
+  const totalTasks = projects.reduce(
+    (sum, project) => sum + project.taskTotal,
+    0
+  )
+  const doneTasks = projects.reduce((sum, project) => sum + project.taskDone, 0)
   const completion =
-    allTasks.length === 0
-      ? 0
-      : Math.round(
-          (allTasks.filter((task) => task.status === 'DONE').length /
-            allTasks.length) *
-            100
-        )
+    totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100)
 
   const openInvoices = invoices.filter(
     (invoice) => invoice.status === 'PENDING' || invoice.status === 'OVERDUE'
@@ -84,7 +97,7 @@ async function PortalContent({ user }: { user: SessionUser }) {
         <StatCard
           label="Overall progress"
           value={`${completion}%`}
-          hint={`${allTasks.length} tasks tracked`}
+          hint={`${doneTasks} of ${totalTasks} deliverables complete`}
           icon={TrendingUpIcon}
         />
         <StatCard
@@ -100,12 +113,16 @@ async function PortalContent({ user }: { user: SessionUser }) {
           hint={
             stats.overdue > 0
               ? `${formatCurrency(stats.overdue)} overdue`
-              : `${openInvoices.length} open invoices`
+              : `${openInvoices.length} open ${openInvoices.length === 1 ? 'invoice' : 'invoices'}`
           }
           icon={ReceiptIcon}
           tone={stats.overdue > 0 ? 'danger' : 'warning'}
         />
       </section>
+
+      {attention.length > 0 ? (
+        <AttentionCenter items={attention} clientView />
+      ) : null}
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Your projects</h2>
@@ -123,8 +140,6 @@ async function PortalContent({ user }: { user: SessionUser }) {
                 key={project.id}
                 project={project}
                 href={`/projects/${project.id}`}
-                showBudget
-                showClient={false}
               />
             ))}
           </div>
@@ -144,57 +159,55 @@ async function PortalContent({ user }: { user: SessionUser }) {
               No invoices have been raised yet.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.slice(0, 5).map((invoice) => {
-                  const days = daysUntil(invoice.dueDate)
-                  const late =
-                    days < 0 &&
-                    invoice.status !== 'PAID' &&
-                    invoice.status !== 'DRAFT'
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Due</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.slice(0, 5).map((invoice) => {
+                    const late = isInvoiceLate(invoice)
 
-                  return (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-mono text-xs">
-                        INV-{invoice.id.slice(0, 8).toUpperCase()}
-                      </TableCell>
-                      <TableCell className="max-w-56">
-                        <Link
-                          href={`/projects/${invoice.project.id}`}
-                          className="block truncate font-medium hover:underline"
+                    return (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-mono text-xs">
+                          {invoiceReference(invoice.id)}
+                        </TableCell>
+                        <TableCell className="max-w-56">
+                          <Link
+                            href={`/projects/${invoice.project.id}`}
+                            className="block truncate font-medium hover:underline"
+                          >
+                            {invoice.project.title}
+                          </Link>
+                        </TableCell>
+                        <TableCell
+                          className={
+                            late
+                              ? 'font-medium text-destructive'
+                              : 'text-muted-foreground'
+                          }
                         >
-                          {invoice.project.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell
-                        className={
-                          late
-                            ? 'font-medium text-destructive'
-                            : 'text-muted-foreground'
-                        }
-                      >
-                        {formatDate(invoice.dueDate)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {formatCurrency(invoice.amount, true)}
-                      </TableCell>
-                      <TableCell>
-                        <InvoiceStatusBadge status={invoice.status} />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                          {formatDate(invoice.dueDate)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {formatCurrency(invoice.amount, true)}
+                        </TableCell>
+                        <TableCell>
+                          <InvoiceStatusBadge status={invoice.status} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

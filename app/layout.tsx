@@ -14,13 +14,37 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+const SITE_URL = process.env.AUTH_URL ?? 'https://parallax-agency.vercel.app'
+
+const TITLE = 'Parallax — The operating system for your agency'
+const DESCRIPTION =
+  'Projects, clients, invoices, and revenue — connected in one workspace built for modern agencies.'
+
 export const metadata: Metadata = {
+  // Resolves the relative OG/Twitter image paths below to absolute URLs, which
+  // social scrapers require.
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Parallax — Agency Workspace',
+    default: TITLE,
     template: '%s · Parallax',
   },
-  description:
-    'Client communication, project delivery and agency finances in one workspace.',
+  description: DESCRIPTION,
+  applicationName: 'Parallax',
+  openGraph: {
+    type: 'website',
+    siteName: 'Parallax',
+    title: TITLE,
+    description: DESCRIPTION,
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  // The workspace is private; only the marketing page is worth indexing, and
+  // signed-in routes are behind the proxy anyway.
+  robots: { index: true, follow: true },
 }
 
 export default function RootLayout({

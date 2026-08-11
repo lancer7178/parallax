@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import * as React from 'react'
 
+import { CommandPalette } from '@/components/shell/command-palette'
 import { sectionLabelFor } from '@/components/shell/nav'
 import { SidebarNav } from '@/components/shell/sidebar-nav'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
@@ -188,6 +189,7 @@ export function AppShell({
           ) : null}
 
           <div className="ml-auto flex items-center gap-1.5">
+            <CommandPalette role={user.role} />
             <ThemeToggle />
             <UserMenu user={user} />
           </div>

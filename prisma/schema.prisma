@@ -40,6 +40,12 @@ enum InvoiceStatus {
   OVERDUE
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+}
+
 enum ActivityType {
   PROJECT_CREATED
   PROJECT_COMPLETED
@@ -47,6 +53,9 @@ enum ActivityType {
   INVOICE_CREATED
   INVOICE_PAID
   USER_JOINED
+  APPROVAL_REQUESTED
+  APPROVAL_APPROVED
+  APPROVAL_CHANGES_REQUESTED
 }
 
 // --- Models ---
@@ -65,6 +74,7 @@ model User {
   clientProjects Project[] @relation("ClientProjects")
   assignedTasks  Task[]    @relation("AssignedTasks")
   activities     Activity[]
+  requestedApprovals Approval[] @relation("RequestedApprovals")
 }
 
 model Project {
@@ -84,6 +94,7 @@ model Project {
   tasks      Task[]
   invoices   Invoice[]
   activities Activity[]
+  approvals  Approval[]
 
   @@index([clientId])
   @@index([status])
@@ -95,6 +106,9 @@ model Task {
   description String?
   status      TaskStatus @default(TODO)
   priority    Int        @default(1) // 1: Low, 2: Medium, 3: High
+  // Drives the dashboard's "due today / overdue" attention items. Optional:
+  // plenty of tasks are sequenced by the board alone and never get a date.
+  dueDate     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -108,6 +122,7 @@ model Task {
   @@index([projectId])
   @@index([assigneeId])
   @@index([status])
+  @@index([dueDate])
 }
 
 model Invoice {
@@ -121,6 +136,36 @@ model Invoice {
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+/**
+ * A deliverable handed to the client for sign-off — the hinge between agency
+ * work and client response, and the only object a client can write to.
+ *
+ * Staff create one ("Homepage v3, ready for review"); the client either
+ * approves it or requests changes with a note. It stays attached to its
+ * project so scoping reuses the same `projectScope` filter as everything else.
+ */
+model Approval {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  status      ApprovalStatus @default(PENDING)
+  /** The client's note when they request changes. Never set on approval. */
+  feedback    String?
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  requestedById String?
+  requestedBy   User?   @relation("RequestedApprovals", fields: [requestedById], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([status])

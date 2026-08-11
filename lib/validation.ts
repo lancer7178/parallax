@@ -63,6 +63,7 @@ export const taskSchema = z.object({
   description: optionalText,
   status: z.enum(TaskStatus),
   priority: z.coerce.number().int().min(1).max(3),
+  dueDate: optionalDate,
   projectId: z.uuid(),
   assigneeId: z
     .string()
@@ -92,6 +93,36 @@ export const invoiceStatusSchema = z.object({
   invoiceId: z.uuid(),
   status: z.enum(InvoiceStatus),
 })
+
+export const approvalSchema = z.object({
+  projectId: z.uuid(),
+  title: z
+    .string()
+    .trim()
+    .min(3, { error: 'Title must be at least 3 characters.' })
+    .max(160),
+  description: optionalText,
+})
+
+/**
+ * The client's decision. `feedback` is required when changes are requested —
+ * "changes requested" without saying what to change is not a decision.
+ */
+export const approvalDecisionSchema = z
+  .object({
+    approvalId: z.uuid(),
+    decision: z.enum(['APPROVED', 'CHANGES_REQUESTED']),
+    feedback: z.string().trim().max(2000).optional(),
+  })
+  .refine(
+    (value) =>
+      value.decision !== 'CHANGES_REQUESTED' ||
+      (value.feedback?.length ?? 0) >= 5,
+    {
+      path: ['feedback'],
+      error: 'Tell the team what needs changing.',
+    }
+  )
 
 export const userSchema = z.object({
   name: z

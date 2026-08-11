@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/table'
 import { INVOICE_STATUSES, INVOICE_STATUS_LABELS } from '@/lib/constants'
 import { requireRole, type SessionUser } from '@/lib/dal'
+import { invoiceReference, isInvoiceLate, summarizeFinance } from '@/lib/finance'
 import { listInvoices, listProjects } from '@/lib/queries'
 import { canManageInvoices } from '@/lib/rbac'
 import { daysUntil, formatCurrency, formatDate } from '@/lib/utils'
@@ -96,18 +97,22 @@ async function InvoiceContent({
   canBill: boolean
 }) {
   const invoices = await listInvoices(user, status)
+  const { paid, outstanding, overdue, overdueCount, invoiced } =
+    summarizeFinance(invoices)
 
-  const paid = invoices
-    .filter((invoice) => invoice.status === 'PAID')
-    .reduce((sum, invoice) => sum + invoice.amount, 0)
-  const outstanding = invoices
-    .filter(
-      (invoice) => invoice.status === 'PENDING' || invoice.status === 'OVERDUE'
-    )
-    .reduce((sum, invoice) => sum + invoice.amount, 0)
-  const overdueCount = invoices.filter(
-    (invoice) => invoice.status === 'OVERDUE'
-  ).length
+  // Share of billed value in each state. Percentages, not counts: one $88k
+  // invoice slipping matters more than three $500 ones.
+  const share = (amount: number) =>
+    invoiced > 0 ? Math.round((amount / invoiced) * 100) : 0
+  const health = [
+    { label: 'Paid', percent: share(paid), className: 'bg-success' },
+    {
+      label: 'Pending',
+      percent: share(outstanding - overdue),
+      className: 'bg-warning',
+    },
+    { label: 'Overdue', percent: share(overdue), className: 'bg-destructive' },
+  ]
 
   return (
     <div className="flex flex-col gap-6">
@@ -127,13 +132,63 @@ async function InvoiceContent({
           tone="warning"
         />
         <StatCard
-          label="Overdue invoices"
-          value={String(overdueCount)}
-          hint={overdueCount > 0 ? 'Needs chasing' : 'Nothing overdue'}
+          label="Overdue"
+          value={formatCurrency(overdue)}
+          hint={
+            overdueCount > 0
+              ? `${overdueCount} ${overdueCount === 1 ? 'invoice' : 'invoices'} to chase`
+              : 'Nothing overdue'
+          }
           icon={ReceiptIcon}
           tone={overdueCount > 0 ? 'danger' : 'success'}
         />
       </section>
+
+      {invoiced > 0 ? (
+        <Card className="p-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold">Invoice health</h2>
+            <span className="text-xs text-muted-foreground">
+              {formatCurrency(invoiced)} billed
+            </span>
+          </div>
+
+          <div
+            className="mt-3 flex h-2 overflow-hidden rounded-full bg-muted"
+            role="img"
+            aria-label={health
+              .map((part) => `${part.label} ${part.percent}%`)
+              .join(', ')}
+          >
+            {health.map((part) =>
+              part.percent > 0 ? (
+                <span
+                  key={part.label}
+                  className={part.className}
+                  style={{ width: `${part.percent}%` }}
+                />
+              ) : null
+            )}
+          </div>
+
+          {/* The bar is a summary; these labels are what actually carries the
+              numbers, so nothing here depends on colour alone. */}
+          <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+            {health.map((part) => (
+              <div key={part.label} className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className={`size-2 rounded-full ${part.className}`}
+                />
+                <dt className="text-xs text-muted-foreground">{part.label}</dt>
+                <dd className="text-xs font-medium tabular-nums">
+                  {part.percent}%
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      ) : null}
 
       {invoices.length === 0 ? (
         <EmptyState
@@ -143,7 +198,7 @@ async function InvoiceContent({
         />
       ) : (
         <Card>
-          <CardContent className="px-0 pt-0">
+          <CardContent className="overflow-x-auto px-0 pt-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -158,15 +213,12 @@ async function InvoiceContent({
               <TableBody>
                 {invoices.map((invoice) => {
                   const days = daysUntil(invoice.dueDate)
-                  const late =
-                    days < 0 &&
-                    invoice.status !== 'PAID' &&
-                    invoice.status !== 'DRAFT'
+                  const late = isInvoiceLate(invoice)
 
                   return (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-mono text-xs">
-                        INV-{invoice.id.slice(0, 8).toUpperCase()}
+                        {invoiceReference(invoice.id)}
                       </TableCell>
                       <TableCell className="max-w-56">
                         <Link

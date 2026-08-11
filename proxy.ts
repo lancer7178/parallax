@@ -8,7 +8,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 // The cookie is never trusted for authorization — `lib/dal.ts` verifies the
 // signed session next to the data on every page and Server Action.
 
-const PUBLIC_PATHS = ['/login']
+// Reachable without a session. `/` is the marketing page, which renders for
+// signed-in and signed-out visitors alike — it just swaps its call to action.
+const PUBLIC_PATHS = ['/', '/login']
 
 function hasSessionCookie(request: NextRequest) {
   return (
@@ -25,11 +27,12 @@ export function proxy(request: NextRequest) {
   if (!signedIn && !isPublic) {
     const login = new URL('/login', request.nextUrl)
     // Preserve where the user was heading so login can send them back.
-    if (pathname !== '/') login.searchParams.set('callbackUrl', pathname)
+    login.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(login)
   }
 
-  if (signedIn && isPublic) {
+  // Only the sign-in form is pointless once signed in; `/` is not.
+  if (signedIn && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.nextUrl))
   }
 

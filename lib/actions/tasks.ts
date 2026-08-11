@@ -38,6 +38,7 @@ export async function createTask(
     description: formData.get('description'),
     status: formData.get('status'),
     priority: formData.get('priority'),
+    dueDate: formData.get('dueDate'),
     projectId: formData.get('projectId'),
     assigneeId: formData.get('assigneeId'),
   })
@@ -76,6 +77,7 @@ export async function updateTask(
     description: formData.get('description'),
     status: formData.get('status'),
     priority: formData.get('priority'),
+    dueDate: formData.get('dueDate'),
     projectId: formData.get('projectId'),
     assigneeId: formData.get('assigneeId'),
   })

@@ -1,17 +1,17 @@
 'use client'
 
+import { ArrowRightIcon } from 'lucide-react'
 import * as React from 'react'
 import { useActionState } from 'react'
 
 import { FieldError, FormMessage, SubmitButton } from '@/components/form-parts'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { login } from '@/lib/actions/auth'
 import type { FormState } from '@/lib/validation'
 
-type DemoAccount = { email: string; role: string }
+type DemoAccount = { email: string; role: string; blurb: string }
 
 export function LoginForm({
   callbackUrl,
@@ -22,7 +22,7 @@ export function LoginForm({
   demoAccounts?: DemoAccount[]
   demoPassword?: string
 }) {
-  const [state, action] = useActionState<FormState | undefined, FormData>(
+  const [state, action, busy] = useActionState<FormState | undefined, FormData>(
     login,
     undefined
   )
@@ -90,29 +90,38 @@ export function LoginForm({
       </Card>
 
       {demoAccounts.length > 0 ? (
-        <div className="space-y-2.5">
+        <div id="demo" className="scroll-mt-8 space-y-2.5">
           <div className="flex items-center gap-2">
             <span className="h-px flex-1 bg-border" aria-hidden />
             <span className="text-[0.7rem] font-medium tracking-wide text-muted-foreground uppercase">
-              Quick demo sign-in
+              Explore demo
             </span>
             <span className="h-px flex-1 bg-border" aria-hidden />
           </div>
 
+          {/* Role cards, not credentials: one click fills the form and submits
+              it, so nobody has to copy a password to look around. */}
           <div className="grid gap-1.5">
             {demoAccounts.map((account) => (
               <button
                 key={account.email}
                 type="button"
                 onClick={() => signInAs(account.email)}
-                className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring outline-none"
+                disabled={busy}
+                className="group flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 outline-none"
               >
-                <span className="truncate font-mono text-xs text-muted-foreground">
-                  {account.email}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">
+                    {account.role}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {account.blurb}
+                  </span>
                 </span>
-                <Badge tone="neutral" className="shrink-0">
-                  {account.role}
-                </Badge>
+                <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                  Enter demo
+                  <ArrowRightIcon className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+                </span>
               </button>
             ))}
           </div>

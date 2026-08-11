@@ -47,16 +47,31 @@ export function DashboardFallback() {
     <Busy label="Loading dashboard…">
       <div className="flex flex-col gap-6" aria-busy="true">
         <StatsFallback />
+
+        {/* Attention centre + deadlines. Matching the real split matters here:
+            this is the first thing on the page, so a differently shaped
+            placeholder would visibly reflow when the data lands. */}
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="space-y-4 p-5 lg:col-span-2">
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-4 w-40" />
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="size-8 shrink-0 rounded-lg" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-44" />
+                  <Skeleton className="h-3 w-56" />
+                </div>
+              </div>
+            ))}
           </Card>
           <Card className="space-y-4 p-5">
             <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-40 w-full" />
           </Card>
         </div>
+
+        <ProjectCardsFallback count={3} />
+
         <div className="grid gap-4 lg:grid-cols-3">
           {Array.from({ length: 3 }, (_, i) => (
             <Card key={i} className="space-y-4 p-5">

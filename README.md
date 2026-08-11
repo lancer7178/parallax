@@ -1,7 +1,8 @@
-# Parallax — Digital Agency Workspace
+# Parallax — the operating system for your agency
 
-A cloud workspace for running a digital agency: client communication, project
-delivery and agency finances in one dashboard.
+Projects, clients, invoices and revenue in one workspace: a public marketing
+page at `/`, an operations dashboard for the agency, and a portal where clients
+follow progress, sign off deliverables and see what they owe.
 
 Built on **Next.js 16 (App Router)** with **React 19**, TypeScript, Tailwind
 CSS v4, Radix UI primitives, dnd-kit, Recharts, Prisma and Auth.js v5 against
@@ -72,9 +73,44 @@ it, so if you rename or remove a seeded account, check that list too.
 
 ## Features
 
+**Public landing page** — `/` is a real marketing page rather than a redirect to
+sign-in. Its product previews (`components/marketing/product-preview.tsx`) are
+built from the application's own cards, badges and tokens, so they cannot drift
+from the product and they handle both themes for free. `proxy.ts` treats `/` as
+public; signed-in visitors get an "Open workspace" call to action instead.
+
+**Attention centre** — the first thing on the dashboard, and the answer to
+"what do I do next". Overdue invoices, projects at risk, tasks past due or due
+today, and approvals waiting on a decision, ordered by severity with every row
+linking to the object itself (`getAttentionItems` in `lib/queries.ts`). Nothing
+is stored: items are derived on read and disappear when the underlying fact is
+resolved, so there is no read/unread state to keep in sync.
+
+**Project health** — projects are flagged by arithmetic, never by a guess
+(`lib/health.ts`). Each level ships with the numbers that produced it: *"Budget
+92% used at 76% complete"*, *"12 days past deadline at 40% complete"*. Money
+signals are only fed into the calculation for viewers allowed to see money, so
+a designer never reads a budget out of a status chip.
+
+**Approvals** — deliverables are first-class objects (`Approval`). Staff send
+one for sign-off; the client approves it or requests changes with a written
+note, and both sides read the same record. This is the only write a client
+account can perform, and it is checked twice: the role must be `CLIENT` *and*
+the approval must hang off a project that client owns.
+
+**Project ↔ finance connection** — every invoice belongs to a project, so each
+project page carries budget, invoiced, paid and outstanding together with a
+budget-burn-against-progress comparison (`lib/finance.ts`,
+`components/projects/project-finance.tsx`).
+
+**Command palette** — `⌘K` / `Ctrl K` searches projects, tasks, clients,
+invoices and team members at once, grouped by type, with arrow-key navigation.
+Search runs through a Server Action into the same role-scoped queries as the
+pages, so results can never include a row the caller could not open.
+
 **Client portal** — clients sign in to `/portal` and see only their own
-engagements: live delivery progress, deadlines, budget and every invoice raised
-against them.
+engagements: live delivery progress, deadlines, approvals awaiting them, and
+every invoice raised against them. No internal tasks, no workload, no board.
 
 **Kanban board** — drag tasks between To Do / In Progress / In Review / Done on
 any project. Moves are optimistic and roll back with a toast if the server
@@ -105,6 +141,8 @@ deleting their own account.
 | Create / edit projects | ✓ | — | — |
 | Create / move / edit tasks | ✓ | ✓ | — |
 | Budgets, revenue, invoices | ✓ | — | own only |
+| Send deliverables for approval | ✓ | ✓ | — |
+| Approve / request changes | — | — | own only |
 | Manage clients & team | ✓ | — | — |
 | Edit own account (`/settings`) | ✓ | ✓ | ✓ |
 
@@ -273,10 +311,16 @@ there too to make the deletion stick.
 The database schema is implemented exactly as specified. A few consequences
 worth noting:
 
-- **Design review / feedback comments** are described in the feature list but
-  have no model in the schema. Adding them needs a `Comment` (or `Feedback`)
-  model related to `Project` and `User`; the portal currently surfaces progress
-  and invoices only.
+- **Project files** have no model or storage. `Approval` carries the
+  deliverable's title, description and the client's feedback, which covers the
+  review loop; attaching actual files needs a `File` model plus object storage.
+- **Free-form comments** exist only as approval feedback. General per-task or
+  per-project threads would need a `Comment` model related to `Project`,
+  `Task` and `User`.
+- **Self-service registration** is deliberately absent: accounts are created by
+  an admin from `/team` and `/clients`, so there is no `/register` route. The
+  landing page's calls to action lead to sign-in and the one-click demo
+  accounts instead.
 - **Kanban column ordering** is not persisted — `Task` has no `order` field, so
   cards within a column sort by priority then recency.
 - **No automated test suite.** There's no `tests/`, e2e runner, or `npm test`

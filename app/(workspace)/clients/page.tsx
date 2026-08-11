@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 
 import { EmptyState, PageHeader } from '@/components/page-header'
 import { TableFallback } from '@/components/skeletons'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -17,8 +18,8 @@ import { UserAvatar } from '@/components/user-avatar'
 import { UserActions } from '@/components/users/user-actions'
 import { UserDialog } from '@/components/users/user-dialog'
 import { requireRole } from '@/lib/dal'
-import { listClients } from '@/lib/queries'
-import { formatDate } from '@/lib/utils'
+import { listClientAccounts, listClients } from '@/lib/queries'
+import { formatCurrency } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Clients' }
 
@@ -48,7 +49,12 @@ export default async function ClientsPage() {
 }
 
 async function ClientsTable() {
-  const clients = await listClients()
+  // Two reads: the enriched rows for the table, and the plain list the row
+  // actions need for "reassign this client's projects".
+  const [clients, plain] = await Promise.all([
+    listClientAccounts(),
+    listClients(),
+  ])
 
   return (
     <>
@@ -60,14 +66,15 @@ async function ClientsTable() {
         />
       ) : (
         <Card>
-          <CardContent className="px-0 pt-0">
+          <CardContent className="overflow-x-auto px-0 pt-0">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Client</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead className="text-right">Projects</TableHead>
-                  <TableHead>Joined</TableHead>
+                  <TableHead>Projects</TableHead>
+                  <TableHead className="text-right">Invoiced</TableHead>
+                  <TableHead className="text-right">Outstanding</TableHead>
+                  <TableHead>Awaiting them</TableHead>
                   <TableHead className="w-12 text-center" />
                 </TableRow>
               </TableHeader>
@@ -80,23 +87,56 @@ async function ClientsTable() {
                           name={client.name}
                           avatarUrl={client.avatarUrl}
                         />
-                        <span className="font-medium">{client.name}</span>
+                        <span className="min-w-0">
+                          <span className="block font-medium">
+                            {client.name}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {client.email}
+                          </span>
+                        </span>
                       </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {client.email}
+                    <TableCell className="text-sm whitespace-nowrap">
+                      <span className="font-medium tabular-nums">
+                        {client.activeProjects} active
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {client.completedProjects} completed
+                      </span>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {client._count.clientProjects}
+                    <TableCell className="text-right font-medium tabular-nums">
+                      {formatCurrency(client.finance.invoiced)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(client.createdAt)}
+                    <TableCell
+                      className={
+                        client.finance.overdue > 0
+                          ? 'text-right font-medium text-destructive tabular-nums'
+                          : 'text-right font-medium tabular-nums'
+                      }
+                    >
+                      {formatCurrency(client.finance.outstanding)}
+                      {client.finance.overdue > 0 ? (
+                        <span className="block text-xs font-normal">
+                          {formatCurrency(client.finance.overdue)} overdue
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {client.pendingApprovals > 0 ? (
+                        <Badge tone="warning">
+                          {client.pendingApprovals} approval
+                          {client.pendingApprovals === 1 ? '' : 's'}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <UserActions
                         user={{ ...client, role: 'CLIENT' }}
                         editableRoles={['CLIENT']}
-                        otherClients={clients.filter((c) => c.id !== client.id)}
+                        otherClients={plain.filter((c) => c.id !== client.id)}
                       />
                     </TableCell>
                   </TableRow>

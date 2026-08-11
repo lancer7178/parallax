@@ -1,12 +1,29 @@
 import 'server-only'
 
-import type { Prisma, ProjectStatus } from '@prisma/client'
+import type { ActivityType, Prisma, ProjectStatus } from '@prisma/client'
 import { cache } from 'react'
 
-import { GOAL_DEFS } from '@/lib/constants'
+import {
+  GOAL_DEFS,
+  INVOICE_STATUS_LABELS,
+  PROJECT_STATUS_LABELS,
+  TASK_STATUS_LABELS,
+} from '@/lib/constants'
 import type { SessionUser } from '@/lib/dal'
+import {
+  invoiceReference,
+  summarizeFinance,
+  type ProjectFinance,
+} from '@/lib/finance'
+import {
+  isTaskOverdue,
+  projectHealth,
+  taskProgress,
+  type ProjectHealth,
+} from '@/lib/health'
 import { prisma } from '@/lib/prisma'
-import { canViewFinancials } from '@/lib/rbac'
+import { canViewFinancials, canViewProjectMoney, ROLE_LABELS } from '@/lib/rbac'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 /**
  * Every project query is filtered through this. Clients can only ever reach
@@ -25,24 +42,88 @@ const projectCardSelect = {
   budget: true,
   updatedAt: true,
   client: { select: { id: true, name: true, email: true, avatarUrl: true } },
-  tasks: { select: { status: true } },
+  tasks: { select: { status: true, dueDate: true } },
+  invoices: { select: { amount: true, status: true, dueDate: true } },
+  approvals: { where: { status: 'PENDING' }, select: { id: true } },
 } satisfies Prisma.ProjectSelect
 
-export type ProjectCard = Prisma.ProjectGetPayload<{
+type ProjectCardRow = Prisma.ProjectGetPayload<{
   select: typeof projectCardSelect
 }>
 
-export async function listProjects(user: SessionUser, status?: string) {
+/**
+ * A project as every list surface renders it: work, money and health already
+ * derived, and money already *removed* for viewers who may not see it. The
+ * gate lives here rather than in the card so a new caller cannot forget it.
+ */
+export type ProjectCard = {
+  id: string
+  title: string
+  description: string | null
+  status: ProjectStatus
+  deadline: Date | null
+  updatedAt: Date
+  client: { id: string; name: string; email: string; avatarUrl: string | null }
+  taskTotal: number
+  taskDone: number
+  progress: number
+  pendingApprovals: number
+  health: ProjectHealth
+  /** `null` when the viewer is not permitted to see this project's money. */
+  finance: ProjectFinance | null
+}
+
+function toProjectCard(row: ProjectCardRow, seesMoney: boolean): ProjectCard {
+  const progress = taskProgress(row.tasks)
+  const finance = summarizeFinance(row.invoices, row.budget)
+  const overdueTasks = row.tasks.filter(isTaskOverdue).length
+
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    deadline: row.deadline,
+    updatedAt: row.updatedAt,
+    client: row.client,
+    taskTotal: row.tasks.length,
+    taskDone: row.tasks.filter((task) => task.status === 'DONE').length,
+    progress,
+    pendingApprovals: row.approvals.length,
+    // Budget burn and overdue invoices are money facts, so they are only fed
+    // into the health calculation for viewers allowed to see money — a
+    // designer must not read "budget 92% used" out of a status chip.
+    health: projectHealth({
+      status: row.status,
+      deadline: row.deadline,
+      progress,
+      budget: seesMoney ? row.budget : null,
+      invoiced: seesMoney ? finance.invoiced : undefined,
+      overdueInvoices: seesMoney ? finance.overdueCount : 0,
+      overdueTasks,
+      pendingApprovals: row.approvals.length,
+    }),
+    finance: seesMoney ? finance : null,
+  }
+}
+
+export async function listProjects(
+  user: SessionUser,
+  status?: string
+): Promise<ProjectCard[]> {
   const where: Prisma.ProjectWhereInput = { ...projectScope(user) }
   if (status && status !== 'ALL') {
     where.status = status as Prisma.ProjectWhereInput['status']
   }
 
-  return prisma.project.findMany({
+  const rows = await prisma.project.findMany({
     where,
     select: projectCardSelect,
     orderBy: [{ status: 'asc' }, { deadline: 'asc' }],
   })
+
+  const seesMoney = canViewProjectMoney(user.role)
+  return rows.map((row) => toProjectCard(row, seesMoney))
 }
 
 const projectDetailSelect = {
@@ -61,6 +142,7 @@ const projectDetailSelect = {
       description: true,
       status: true,
       priority: true,
+      dueDate: true,
       updatedAt: true,
       assignee: { select: { id: true, name: true, avatarUrl: true } },
     },
@@ -76,18 +158,111 @@ const projectDetailSelect = {
     },
     orderBy: { dueDate: 'asc' },
   },
+  approvals: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      status: true,
+      feedback: true,
+      decidedAt: true,
+      createdAt: true,
+      requestedBy: { select: { id: true, name: true, avatarUrl: true } },
+    },
+    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+  },
 } satisfies Prisma.ProjectSelect
 
-export type ProjectDetail = Prisma.ProjectGetPayload<{
+type ProjectDetailRow = Prisma.ProjectGetPayload<{
   select: typeof projectDetailSelect
 }>
-export type ProjectTask = ProjectDetail['tasks'][number]
+
+export type ProjectDetail = ProjectDetailRow & {
+  progress: number
+  health: ProjectHealth
+  /** `null` when the viewer is not permitted to see this project's money. */
+  finance: ProjectFinance | null
+}
+
+export type ProjectTask = ProjectDetailRow['tasks'][number]
+export type ProjectApproval = ProjectDetailRow['approvals'][number]
 
 /** Returns `null` when the project does not exist *or* is out of scope. */
-export async function getProject(user: SessionUser, id: string) {
-  return prisma.project.findFirst({
+export async function getProject(
+  user: SessionUser,
+  id: string
+): Promise<ProjectDetail | null> {
+  const row = await prisma.project.findFirst({
     where: { id, ...projectScope(user) },
     select: projectDetailSelect,
+  })
+  if (!row) return null
+
+  const seesMoney = canViewProjectMoney(user.role)
+  const progress = taskProgress(row.tasks)
+  const finance = summarizeFinance(row.invoices, row.budget)
+  const pendingApprovals = row.approvals.filter(
+    (approval) => approval.status === 'PENDING'
+  ).length
+
+  return {
+    ...row,
+    // Money-free rows for viewers who may not see money, so nothing leaks
+    // through a serialized prop even if a component forgets the check.
+    invoices: seesMoney ? row.invoices : [],
+    budget: seesMoney ? row.budget : null,
+    progress,
+    finance: seesMoney ? finance : null,
+    health: projectHealth({
+      status: row.status,
+      deadline: row.deadline,
+      progress,
+      budget: seesMoney ? row.budget : null,
+      invoiced: seesMoney ? finance.invoiced : undefined,
+      overdueInvoices: seesMoney ? finance.overdueCount : 0,
+      overdueTasks: row.tasks.filter(isTaskOverdue).length,
+      pendingApprovals,
+    }),
+  }
+}
+
+/**
+ * Events a client may read on their own project. Everything omitted here —
+ * `TASK_COMPLETED`, `USER_JOINED` — names internal work or internal people,
+ * which is exactly what the portal is supposed to keep out of view.
+ */
+const CLIENT_SAFE_ACTIVITY = [
+  'PROJECT_CREATED',
+  'PROJECT_COMPLETED',
+  'INVOICE_CREATED',
+  'INVOICE_PAID',
+  'APPROVAL_REQUESTED',
+  'APPROVAL_APPROVED',
+  'APPROVAL_CHANGES_REQUESTED',
+] as const satisfies readonly ActivityType[]
+
+/** The project's own slice of the activity log, newest first. */
+export async function listProjectActivity(
+  user: SessionUser,
+  projectId: string,
+  limit = 12
+) {
+  return prisma.activity.findMany({
+    where: {
+      projectId,
+      ...(user.role === 'CLIENT'
+        ? { type: { in: [...CLIENT_SAFE_ACTIVITY] } }
+        : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      type: true,
+      message: true,
+      createdAt: true,
+      actor: { select: { id: true, name: true, avatarUrl: true } },
+    },
   })
 }
 
@@ -104,6 +279,7 @@ const taskRowSelect = {
   title: true,
   status: true,
   priority: true,
+  dueDate: true,
   updatedAt: true,
   project: { select: { id: true, title: true } },
   assignee: { select: { id: true, name: true, avatarUrl: true } },
@@ -113,13 +289,31 @@ export type TaskRow = Prisma.TaskGetPayload<{ select: typeof taskRowSelect }>
 
 export async function listTasks(
   user: SessionUser,
-  filters: { assignee?: 'me' | 'all'; status?: string } = {}
+  filters: {
+    assignee?: 'me' | 'all'
+    status?: string
+    /** Matches the attention centre's links: `/tasks?due=overdue`. */
+    due?: string
+  } = {}
 ) {
   const where: Prisma.TaskWhereInput = { project: projectScope(user) }
 
   if (filters.assignee === 'me') where.assigneeId = user.id
   if (filters.status && filters.status !== 'ALL') {
     where.status = filters.status as Prisma.TaskWhereInput['status']
+  }
+
+  if (filters.due === 'overdue' || filters.due === 'today') {
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const tomorrowStart = new Date(todayStart)
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+
+    where.status = { not: 'DONE' }
+    where.dueDate =
+      filters.due === 'overdue'
+        ? { lt: todayStart }
+        : { gte: todayStart, lt: tomorrowStart }
   }
 
   return prisma.task.findMany({
@@ -185,6 +379,53 @@ export const listClients = cache(async () =>
   })
 )
 
+export type ClientAccount = Awaited<ReturnType<typeof listClients>>[number] & {
+  activeProjects: number
+  completedProjects: number
+  finance: ProjectFinance
+  pendingApprovals: number
+}
+
+/**
+ * Clients with the numbers that make the list worth reading: how much work is
+ * live, and what they owe. Admin-only — `listClients` remains the plain
+ * version used to populate the project form's client picker.
+ */
+export async function listClientAccounts(): Promise<ClientAccount[]> {
+  const clients = await prisma.user.findMany({
+    where: { role: 'CLIENT' },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatarUrl: true,
+      createdAt: true,
+      _count: { select: { clientProjects: true } },
+      clientProjects: {
+        select: {
+          status: true,
+          invoices: { select: { amount: true, status: true, dueDate: true } },
+          approvals: { where: { status: 'PENDING' }, select: { id: true } },
+        },
+      },
+    },
+    orderBy: { name: 'asc' },
+  })
+
+  return clients.map(({ clientProjects, ...client }) => ({
+    ...client,
+    activeProjects: clientProjects.filter((p) => p.status !== 'COMPLETED')
+      .length,
+    completedProjects: clientProjects.filter((p) => p.status === 'COMPLETED')
+      .length,
+    finance: summarizeFinance(clientProjects.flatMap((p) => p.invoices)),
+    pendingApprovals: clientProjects.reduce(
+      (sum, project) => sum + project.approvals.length,
+      0
+    ),
+  }))
+}
+
 export const listTeam = cache(async () =>
   prisma.user.findMany({
     select: {
@@ -206,8 +447,11 @@ export type RevenuePoint = { month: string; collected: number; billed: number }
 
 export type DashboardStats = {
   revenue: number
+  /** Paid invoices dated inside the current calendar month. */
+  revenueThisMonth: number
   outstanding: number
   overdue: number
+  overdueCount: number
   activeProjects: number
   openTasks: number
   budgetAllocated: number
@@ -229,11 +473,15 @@ export async function getDashboardStats(
   user: SessionUser
 ): Promise<DashboardStats> {
   const scope = projectScope(user)
-  const showMoney = canViewFinancials(user.role) || user.role === 'CLIENT'
+  const showMoney = canViewProjectMoney(user.role)
 
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5, 1)
   sixMonthsAgo.setHours(0, 0, 0, 0)
+
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
 
   const [
     invoiceGroups,
@@ -243,12 +491,14 @@ export async function getDashboardStats(
     recentInvoices,
     upcomingDeadlines,
   ] = await Promise.all([
-    prisma.invoice.groupBy({
-      by: ['status'],
-      where: { project: scope },
-      _count: { _all: true },
-      _sum: { amount: true },
-    }),
+    showMoney
+      ? prisma.invoice.groupBy({
+          by: ['status'],
+          where: { project: scope },
+          _count: { _all: true },
+          _sum: { amount: true },
+        })
+      : Promise.resolve([]),
     prisma.project.groupBy({
       by: ['status'],
       where: scope,
@@ -259,7 +509,10 @@ export async function getDashboardStats(
       where: { project: scope },
       _count: { _all: true },
     }),
-    prisma.project.aggregate({ where: scope, _sum: { budget: true } }),
+    // Budget is money like any other, so delivery roles do not get the total.
+    showMoney
+      ? prisma.project.aggregate({ where: scope, _sum: { budget: true } })
+      : Promise.resolve(null),
     showMoney
       ? prisma.invoice.findMany({
           where: { project: scope, dueDate: { gte: sixMonthsAgo } },
@@ -280,6 +533,13 @@ export async function getDashboardStats(
   const revenue = invoiceTotal('PAID')
   const outstanding = invoiceTotal('PENDING') + invoiceTotal('OVERDUE')
   const overdue = invoiceTotal('OVERDUE')
+  const overdueCount =
+    invoiceGroups.find((g) => g.status === 'OVERDUE')?._count._all ?? 0
+  const revenueThisMonth = recentInvoices
+    .filter(
+      (invoice) => invoice.status === 'PAID' && invoice.dueDate >= monthStart
+    )
+    .reduce((sum, invoice) => sum + invoice.amount, 0)
 
   // Build a dense 6-month series so the chart never has gaps.
   const buckets = new Map<string, RevenuePoint>()
@@ -303,14 +563,16 @@ export async function getDashboardStats(
 
   return {
     revenue,
+    revenueThisMonth,
     outstanding,
     overdue,
+    overdueCount,
     activeProjects:
       projectGroups.find((g) => g.status === 'ACTIVE')?._count._all ?? 0,
     openTasks: taskGroups
       .filter((g) => g.status !== 'DONE')
       .reduce((sum, g) => sum + g._count._all, 0),
-    budgetAllocated: budgetAgg._sum.budget ?? 0,
+    budgetAllocated: budgetAgg?._sum.budget ?? 0,
     revenueByMonth: [...buckets.values()],
     invoicesByStatus: invoiceGroups.map((g) => ({
       status: g.status,
@@ -456,6 +718,365 @@ export async function getTeamWorkload(user: SessionUser): Promise<WorkloadRow[]>
       ).length,
     }))
     .sort((a, b) => b.openTasks - a.openTasks)
+}
+
+// --- Attention centre ------------------------------------------------------
+
+export type AttentionKind =
+  | 'invoice_overdue'
+  | 'approval_waiting'
+  | 'approval_changes'
+  | 'task_overdue'
+  | 'task_due_today'
+  | 'project_at_risk'
+
+export type AttentionItem = {
+  id: string
+  kind: AttentionKind
+  /** The headline — a count and a noun, never a sentence. */
+  title: string
+  /** Why it is here, in the fewest words that stay specific. */
+  detail: string
+  href: string
+  tone: 'danger' | 'warning' | 'info'
+}
+
+/**
+ * Everything the signed-in user should act on, in one severity-ordered list.
+ *
+ * Each item is derived, never stored: nothing to mark as read, nothing to keep
+ * in sync, and it disappears on its own once the underlying fact is resolved.
+ * The set of items differs by role because the *actions* differ by role — a
+ * client is never shown a task, a designer is never shown an invoice.
+ */
+export async function getAttentionItems(
+  user: SessionUser
+): Promise<AttentionItem[]> {
+  const scope = projectScope(user)
+  const seesMoney = canViewProjectMoney(user.role)
+  const isClient = user.role === 'CLIENT'
+  // Delivery roles only ever count their own work, so the link they follow has
+  // to carry the same filter or the destination contradicts the count.
+  const mineOnly = user.role !== 'ADMIN'
+
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+
+  const [lateInvoices, pendingApprovals, changeRequests, overdueTasks, dueToday, projects] =
+    await Promise.all([
+      seesMoney
+        ? prisma.invoice.findMany({
+            where: {
+              project: scope,
+              status: { in: ['PENDING', 'OVERDUE'] },
+              dueDate: { lt: todayStart },
+            },
+            select: {
+              id: true,
+              amount: true,
+              dueDate: true,
+              project: { select: { id: true, title: true } },
+            },
+            orderBy: { dueDate: 'asc' },
+          })
+        : Promise.resolve([]),
+      prisma.approval.findMany({
+        where: { status: 'PENDING', project: scope },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          project: {
+            select: { id: true, title: true, client: { select: { name: true } } },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      // Changes the client asked for are the agency's move, not the client's.
+      isClient
+        ? Promise.resolve([])
+        : prisma.approval.findMany({
+            where: { status: 'CHANGES_REQUESTED', project: scope },
+            select: {
+              id: true,
+              title: true,
+              decidedAt: true,
+              project: { select: { id: true, title: true } },
+            },
+            orderBy: { decidedAt: 'desc' },
+          }),
+      isClient
+        ? Promise.resolve([])
+        : prisma.task.findMany({
+            where: {
+              project: scope,
+              status: { not: 'DONE' },
+              dueDate: { lt: todayStart },
+              ...(user.role === 'ADMIN' ? {} : { assigneeId: user.id }),
+            },
+            select: { id: true, title: true, project: { select: { id: true } } },
+          }),
+      isClient
+        ? Promise.resolve([])
+        : prisma.task.findMany({
+            where: {
+              project: scope,
+              status: { not: 'DONE' },
+              dueDate: { gte: todayStart, lt: tomorrowStart },
+              ...(user.role === 'ADMIN' ? {} : { assigneeId: user.id }),
+            },
+            select: { id: true, title: true, project: { select: { id: true } } },
+          }),
+      isClient
+        ? Promise.resolve([])
+        : prisma.project.findMany({
+            where: { ...scope, status: { not: 'COMPLETED' } },
+            select: projectCardSelect,
+          }),
+    ])
+
+  const items: AttentionItem[] = []
+
+  if (lateInvoices.length > 0) {
+    const total = lateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+    const oldest = lateInvoices[0]!
+    items.push({
+      id: 'invoices-overdue',
+      kind: 'invoice_overdue',
+      title:
+        lateInvoices.length === 1
+          ? '1 invoice overdue'
+          : `${lateInvoices.length} invoices overdue`,
+      detail: `${formatCurrency(total)} unpaid · oldest ${formatDate(oldest.dueDate)}`,
+      href: '/invoices',
+      tone: 'danger',
+    })
+  }
+
+  // Projects whose numbers say "at risk" — each carries its own reason so the
+  // item is actionable rather than merely alarming.
+  const atRisk = projects
+    .map((row) => toProjectCard(row, seesMoney))
+    .filter((project) => project.health.level === 'at_risk')
+
+  for (const project of atRisk.slice(0, 3)) {
+    items.push({
+      id: `project-${project.id}`,
+      kind: 'project_at_risk',
+      title: `${project.title} is at risk`,
+      detail: project.health.reasons[0]!,
+      href: `/projects/${project.id}`,
+      tone: 'danger',
+    })
+  }
+
+  if (pendingApprovals.length > 0) {
+    const oldest = pendingApprovals[0]!
+    if (isClient) {
+      items.push({
+        id: 'approvals-waiting',
+        kind: 'approval_waiting',
+        title:
+          pendingApprovals.length === 1
+            ? '1 deliverable needs your approval'
+            : `${pendingApprovals.length} deliverables need your approval`,
+        detail: `${oldest.title} · sent ${formatDate(oldest.createdAt)}`,
+        href: `/projects/${oldest.project.id}#approvals`,
+        tone: 'warning',
+      })
+    } else {
+      items.push({
+        id: 'approvals-waiting',
+        kind: 'approval_waiting',
+        title:
+          pendingApprovals.length === 1
+            ? '1 client approval outstanding'
+            : `${pendingApprovals.length} client approvals outstanding`,
+        detail: `${oldest.project.client.name} · ${oldest.title} since ${formatDate(oldest.createdAt)}`,
+        href: `/projects/${oldest.project.id}#approvals`,
+        tone: 'warning',
+      })
+    }
+  }
+
+  if (changeRequests.length > 0) {
+    const latest = changeRequests[0]!
+    items.push({
+      id: 'approvals-changes',
+      kind: 'approval_changes',
+      title:
+        changeRequests.length === 1
+          ? '1 deliverable has change requests'
+          : `${changeRequests.length} deliverables have change requests`,
+      detail: `${latest.project.title} · ${latest.title}`,
+      href: `/projects/${latest.project.id}#approvals`,
+      tone: 'warning',
+    })
+  }
+
+  if (overdueTasks.length > 0) {
+    items.push({
+      id: 'tasks-overdue',
+      kind: 'task_overdue',
+      title:
+        overdueTasks.length === 1
+          ? '1 task past due'
+          : `${overdueTasks.length} tasks past due`,
+      detail:
+        user.role === 'ADMIN'
+          ? `Across ${new Set(overdueTasks.map((t) => t.project.id)).size} projects`
+          : 'Assigned to you',
+      href: mineOnly ? '/tasks?due=overdue&assignee=me' : '/tasks?due=overdue',
+      tone: 'danger',
+    })
+  }
+
+  if (dueToday.length > 0) {
+    items.push({
+      id: 'tasks-due-today',
+      kind: 'task_due_today',
+      title:
+        dueToday.length === 1
+          ? '1 task due today'
+          : `${dueToday.length} tasks due today`,
+      detail: user.role === 'ADMIN' ? 'Across the agency' : 'Assigned to you',
+      href: mineOnly ? '/tasks?due=today&assignee=me' : '/tasks?due=today',
+      tone: 'warning',
+    })
+  }
+
+  const severity = { danger: 0, warning: 1, info: 2 } as const
+  return items.sort((a, b) => severity[a.tone] - severity[b.tone])
+}
+
+// --- Global search ---------------------------------------------------------
+
+export type SearchResult = {
+  id: string
+  group: 'Projects' | 'Clients' | 'Tasks' | 'Invoices' | 'Team'
+  title: string
+  subtitle: string
+  href: string
+}
+
+const SEARCH_LIMIT = 5
+
+/**
+ * Powers the command palette. Every branch is scoped the same way the pages
+ * are — a client searching "Atlas" gets nothing back unless Atlas is theirs,
+ * and a designer never matches an invoice.
+ */
+export async function searchWorkspace(
+  user: SessionUser,
+  term: string
+): Promise<SearchResult[]> {
+  const query = term.trim()
+  if (query.length < 2) return []
+
+  const scope = projectScope(user)
+  const contains = { contains: query, mode: 'insensitive' } as const
+  const isAdmin = user.role === 'ADMIN'
+  const seesMoney = canViewProjectMoney(user.role)
+
+  const [projects, tasks, invoices, people] = await Promise.all([
+    prisma.project.findMany({
+      where: {
+        ...scope,
+        OR: [{ title: contains }, { description: contains }],
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        client: { select: { name: true } },
+      },
+      take: SEARCH_LIMIT,
+      orderBy: { updatedAt: 'desc' },
+    }),
+    user.role === 'CLIENT'
+      ? Promise.resolve([])
+      : prisma.task.findMany({
+          where: { project: scope, title: contains },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            project: { select: { id: true, title: true } },
+          },
+          take: SEARCH_LIMIT,
+          orderBy: { updatedAt: 'desc' },
+        }),
+    seesMoney
+      ? prisma.invoice.findMany({
+          where: {
+            project: { ...scope, OR: [{ title: contains }, { client: { name: contains } }] },
+          },
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            project: { select: { id: true, title: true } },
+          },
+          take: SEARCH_LIMIT,
+          orderBy: { dueDate: 'desc' },
+        })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.user.findMany({
+          where: { OR: [{ name: contains }, { email: contains }] },
+          select: { id: true, name: true, email: true, role: true },
+          take: SEARCH_LIMIT,
+          orderBy: { name: 'asc' },
+        })
+      : Promise.resolve([]),
+  ])
+
+  const results: SearchResult[] = []
+
+  for (const project of projects) {
+    results.push({
+      id: `project-${project.id}`,
+      group: 'Projects',
+      title: project.title,
+      subtitle: `${PROJECT_STATUS_LABELS[project.status]} · ${project.client.name}`,
+      href: `/projects/${project.id}`,
+    })
+  }
+
+  for (const task of tasks) {
+    results.push({
+      id: `task-${task.id}`,
+      group: 'Tasks',
+      title: task.title,
+      subtitle: `${TASK_STATUS_LABELS[task.status]} · ${task.project.title}`,
+      href: `/projects/${task.project.id}`,
+    })
+  }
+
+  for (const invoice of invoices) {
+    results.push({
+      id: `invoice-${invoice.id}`,
+      group: 'Invoices',
+      title: invoiceReference(invoice.id),
+      subtitle: `${formatCurrency(invoice.amount)} · ${INVOICE_STATUS_LABELS[invoice.status]} · ${invoice.project.title}`,
+      href: `/projects/${invoice.project.id}`,
+    })
+  }
+
+  for (const person of people) {
+    const isClient = person.role === 'CLIENT'
+    results.push({
+      id: `user-${person.id}`,
+      group: isClient ? 'Clients' : 'Team',
+      title: person.name,
+      subtitle: `${ROLE_LABELS[person.role]} · ${person.email}`,
+      href: isClient ? '/clients' : '/team',
+    })
+  }
+
+  return results
 }
 
 // --- Activity feed ---------------------------------------------------------

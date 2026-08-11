@@ -13,6 +13,20 @@ export const canViewFinancials = (role: Role) => role === 'ADMIN'
 export const canViewOwnInvoices = (role: Role) =>
   role === 'ADMIN' || role === 'CLIENT'
 
+/**
+ * Money *on a project they can already reach*: the agency sees the whole book,
+ * a client sees the bill for their own engagement, and delivery roles see
+ * neither. Distinct from `canViewFinancials`, which gates agency-wide revenue.
+ */
+export const canViewProjectMoney = (role: Role) =>
+  role === 'ADMIN' || role === 'CLIENT'
+
+/** Only the client on a project may accept or reject a deliverable. */
+export const canDecideApprovals = (role: Role) => role === 'CLIENT'
+
+/** Staff send deliverables for sign-off; clients never create their own. */
+export const canRequestApprovals = (role: Role) => role !== 'CLIENT'
+
 export const canManageProjects = (role: Role) => role === 'ADMIN'
 
 export const canManageTasks = (role: Role) => role !== 'CLIENT'

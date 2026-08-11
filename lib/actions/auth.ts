@@ -4,6 +4,8 @@ import { AuthError } from 'next-auth'
 import { redirect } from 'next/navigation'
 
 import { signIn, signOut } from '@/auth'
+import { prisma } from '@/lib/prisma'
+import { homePathFor } from '@/lib/rbac'
 import { loginSchema, toFormState, type FormState } from '@/lib/validation'
 
 export async function login(
@@ -30,13 +32,21 @@ export async function login(
     throw error
   }
 
-  // `/` reads the new session and forwards each role to its own home page.
+  // `/` is the public marketing page, so signing in has to resolve the role's
+  // own home page here rather than bouncing through it. The credentials were
+  // just verified above, so this read cannot leak anything a caller did not
+  // already prove they own.
+  const account = await prisma.user.findUnique({
+    where: { email: parsed.data.email },
+    select: { role: true },
+  })
+
   // `redirect` throws a control-flow exception, so it must sit outside `try`.
   const callbackUrl = formData.get('callbackUrl')
   const target =
     typeof callbackUrl === 'string' && callbackUrl.startsWith('/')
       ? callbackUrl
-      : '/'
+      : homePathFor(account?.role ?? 'CLIENT')
   redirect(target)
 }
 

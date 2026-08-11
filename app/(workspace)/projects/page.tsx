@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from '@/lib/constants'
 import { requireRole, type SessionUser } from '@/lib/dal'
 import { listClients, listProjects } from '@/lib/queries'
-import { canManageProjects, canViewFinancials } from '@/lib/rbac'
+import { canManageProjects } from '@/lib/rbac'
 
 export const metadata: Metadata = { title: 'Projects' }
 
@@ -50,7 +50,6 @@ async function ProjectGrid({
           key={project.id}
           project={project}
           href={`/projects/${project.id}`}
-          showBudget={canViewFinancials(user.role)}
         />
       ))}
     </div>

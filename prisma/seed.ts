@@ -1,5 +1,6 @@
 import {
   ActivityType,
+  ApprovalStatus,
   InvoiceStatus,
   PrismaClient,
   ProjectStatus,
@@ -143,17 +144,34 @@ async function main() {
       clientId: helios.id,
       tasks: [
         { title: 'Catalog service API contract', status: TaskStatus.DONE, priority: 3, assigneeId: abdulatef.id },
-        { title: 'Product detail page build', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: lina.id },
+        { title: 'Product detail page build', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: lina.id, dueDate: offsetDays(0) },
         { title: 'Checkout wireframes', status: TaskStatus.DONE, priority: 2, assigneeId: sara.id },
-        { title: 'Design system tokens', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: karim.id },
-        { title: 'Cart persistence + edge caching', status: TaskStatus.TODO, priority: 3, assigneeId: abdulatef.id },
-        { title: 'Payment provider integration', status: TaskStatus.TODO, priority: 3, assigneeId: null },
-        { title: 'Accessibility audit', status: TaskStatus.TODO, priority: 1, assigneeId: sara.id },
+        { title: 'Design system tokens', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: karim.id, dueDate: offsetDays(-2) },
+        { title: 'Cart persistence + edge caching', status: TaskStatus.TODO, priority: 3, assigneeId: abdulatef.id, dueDate: offsetDays(6) },
+        { title: 'Payment provider integration', status: TaskStatus.TODO, priority: 3, assigneeId: null, dueDate: offsetDays(18) },
+        { title: 'Accessibility audit', status: TaskStatus.TODO, priority: 1, assigneeId: sara.id, dueDate: offsetDays(27) },
       ],
       invoices: [
         { amount: 48_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-62) },
         { amount: 48_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-24) },
         { amount: 32_000, status: InvoiceStatus.PENDING, dueDate: offsetDays(11) },
+      ],
+      approvals: [
+        {
+          title: 'Homepage and category templates',
+          description: 'Final desktop and mobile layouts for the storefront entry pages.',
+          status: ApprovalStatus.APPROVED,
+          decidedAt: activityTime(6),
+          requestedById: sara.id,
+          createdAt: activityTime(11),
+        },
+        {
+          title: 'Checkout flow prototype',
+          description: 'End-to-end checkout including guest purchase and saved cards.',
+          status: ApprovalStatus.PENDING,
+          requestedById: sara.id,
+          createdAt: activityTime(2),
+        },
       ],
     },
     {
@@ -167,12 +185,31 @@ async function main() {
       tasks: [
         { title: 'Typography scale', status: TaskStatus.DONE, priority: 2, assigneeId: karim.id },
         { title: 'Color system + dark mode', status: TaskStatus.DONE, priority: 3, assigneeId: sara.id },
-        { title: 'Component documentation site', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: lina.id },
-        { title: 'Icon set handoff', status: TaskStatus.IN_PROGRESS, priority: 1, assigneeId: karim.id },
+        { title: 'Component documentation site', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: lina.id, dueDate: offsetDays(-3) },
+        { title: 'Icon set handoff', status: TaskStatus.IN_PROGRESS, priority: 1, assigneeId: karim.id, dueDate: offsetDays(4) },
       ],
       invoices: [
         { amount: 31_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-40) },
         { amount: 31_000, status: InvoiceStatus.OVERDUE, dueDate: offsetDays(-9) },
+      ],
+      approvals: [
+        {
+          title: 'Component library release candidate',
+          description: 'Buttons, forms, navigation and data display components.',
+          status: ApprovalStatus.PENDING,
+          requestedById: karim.id,
+          createdAt: activityTime(4),
+        },
+        {
+          title: 'Dark mode palette',
+          description: 'Surface, border and accent tokens for the dark theme.',
+          status: ApprovalStatus.CHANGES_REQUESTED,
+          feedback:
+            'Contrast on the secondary buttons is too low against the dark surface. Please raise it before we sign off.',
+          decidedAt: activityTime(8),
+          requestedById: sara.id,
+          createdAt: activityTime(13),
+        },
       ],
     },
     {
@@ -184,13 +221,14 @@ async function main() {
       budget: 210_000,
       clientId: meridian.id,
       tasks: [
-        { title: 'Compliance requirements workshop', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: abdulatef.id },
-        { title: 'Information architecture', status: TaskStatus.TODO, priority: 2, assigneeId: sara.id },
+        { title: 'Compliance requirements workshop', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: abdulatef.id, dueDate: offsetDays(16) },
+        { title: 'Information architecture', status: TaskStatus.TODO, priority: 2, assigneeId: sara.id, dueDate: offsetDays(30) },
         { title: 'Auth + audit logging spike', status: TaskStatus.TODO, priority: 3, assigneeId: lina.id },
       ],
       invoices: [
         { amount: 42_000, status: InvoiceStatus.DRAFT, dueDate: offsetDays(30) },
       ],
+      approvals: [],
     },
     {
       title: 'Helios Loyalty Campaign',
@@ -208,6 +246,16 @@ async function main() {
         { amount: 19_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-75) },
         { amount: 19_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-45) },
       ],
+      approvals: [
+        {
+          title: 'Loyalty microsite',
+          description: 'Landing page, rewards tiers and sign-up flow.',
+          status: ApprovalStatus.APPROVED,
+          decidedAt: activityTime(28),
+          requestedById: lina.id,
+          createdAt: activityTime(34),
+        },
+      ],
     },
     {
       title: 'Atlas Trading Dashboard',
@@ -219,17 +267,34 @@ async function main() {
       clientId: atlas.id,
       tasks: [
         { title: 'Market data websocket layer', status: TaskStatus.DONE, priority: 3, assigneeId: omar.id },
-        { title: 'Positions table virtualization', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: tarek.id },
-        { title: 'Risk alert rules engine', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: omar.id },
+        { title: 'Positions table virtualization', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: tarek.id, dueDate: offsetDays(0) },
+        { title: 'Risk alert rules engine', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: omar.id, dueDate: offsetDays(7) },
         { title: 'Dashboard layout system', status: TaskStatus.DONE, priority: 2, assigneeId: yasmine.id },
-        { title: 'Dark-mode chart theming', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: yasmine.id },
-        { title: 'Latency monitoring', status: TaskStatus.TODO, priority: 2, assigneeId: tarek.id },
+        { title: 'Dark-mode chart theming', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: yasmine.id, dueDate: offsetDays(3) },
+        { title: 'Latency monitoring', status: TaskStatus.TODO, priority: 2, assigneeId: tarek.id, dueDate: offsetDays(12) },
         { title: 'Penetration test remediation', status: TaskStatus.TODO, priority: 3, assigneeId: null },
       ],
       invoices: [
         { amount: 88_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-90) },
         { amount: 88_000, status: InvoiceStatus.PAID, dueDate: offsetDays(0) },
         { amount: 89_000, status: InvoiceStatus.PENDING, dueDate: offsetDays(25) },
+      ],
+      approvals: [
+        {
+          title: 'Dashboard layout system',
+          description: 'Panel grid, saved layouts and responsive breakpoints.',
+          status: ApprovalStatus.APPROVED,
+          decidedAt: activityTime(5),
+          requestedById: yasmine.id,
+          createdAt: activityTime(10),
+        },
+        {
+          title: 'Risk alert notification rules',
+          description: 'Thresholds and delivery channels for the alerting engine.',
+          status: ApprovalStatus.PENDING,
+          requestedById: omar.id,
+          createdAt: activityTime(1),
+        },
       ],
     },
     {
@@ -241,13 +306,14 @@ async function main() {
       budget: 96_000,
       clientId: atlas.id,
       tasks: [
-        { title: 'Regulatory requirements matrix', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: omar.id },
+        { title: 'Regulatory requirements matrix', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: omar.id, dueDate: offsetDays(21) },
         { title: 'Report template drafts', status: TaskStatus.TODO, priority: 1, assigneeId: yasmine.id },
         { title: 'Data warehouse export spike', status: TaskStatus.TODO, priority: 2, assigneeId: tarek.id },
       ],
       invoices: [
         { amount: 24_000, status: InvoiceStatus.DRAFT, dueDate: offsetDays(40) },
       ],
+      approvals: [],
     },
     {
       title: 'Borealis Streaming App',
@@ -258,15 +324,24 @@ async function main() {
       budget: 178_000,
       clientId: borealis.id,
       tasks: [
-        { title: 'Adaptive bitrate player', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: lina.id },
-        { title: 'Offline download queue', status: TaskStatus.TODO, priority: 2, assigneeId: abdulatef.id },
+        { title: 'Adaptive bitrate player', status: TaskStatus.IN_PROGRESS, priority: 3, assigneeId: lina.id, dueDate: offsetDays(9) },
+        { title: 'Offline download queue', status: TaskStatus.TODO, priority: 2, assigneeId: abdulatef.id, dueDate: offsetDays(21) },
         { title: 'Playback UI redesign', status: TaskStatus.DONE, priority: 2, assigneeId: karim.id },
-        { title: 'Content recommendation carousel', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: sara.id },
+        { title: 'Content recommendation carousel', status: TaskStatus.IN_REVIEW, priority: 2, assigneeId: sara.id, dueDate: offsetDays(-1) },
         { title: 'Chromecast support', status: TaskStatus.TODO, priority: 1, assigneeId: null },
       ],
       invoices: [
         { amount: 59_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-30) },
         { amount: 59_000, status: InvoiceStatus.PENDING, dueDate: offsetDays(5) },
+      ],
+      approvals: [
+        {
+          title: 'Playback UI final screens',
+          description: 'Player controls, quality selector and offline download states.',
+          status: ApprovalStatus.PENDING,
+          requestedById: karim.id,
+          createdAt: activityTime(3),
+        },
       ],
     },
     {
@@ -285,6 +360,16 @@ async function main() {
         { amount: 20_500, status: InvoiceStatus.PAID, dueDate: offsetDays(-120) },
         { amount: 20_500, status: InvoiceStatus.PAID, dueDate: offsetDays(-85) },
       ],
+      approvals: [
+        {
+          title: 'Brand guidelines',
+          description: 'Logo usage, typography, colour and photography direction.',
+          status: ApprovalStatus.APPROVED,
+          decidedAt: activityTime(58),
+          requestedById: yasmine.id,
+          createdAt: activityTime(64),
+        },
+      ],
     },
     {
       title: 'Crestview Listings Platform',
@@ -295,27 +380,47 @@ async function main() {
       budget: 132_000,
       clientId: crestview.id,
       tasks: [
-        { title: 'Map search performance pass', status: TaskStatus.IN_REVIEW, priority: 3, assigneeId: abdulatef.id },
+        { title: 'Map search performance pass', status: TaskStatus.IN_REVIEW, priority: 3, assigneeId: abdulatef.id, dueDate: offsetDays(2) },
         { title: 'Saved search notifications', status: TaskStatus.DONE, priority: 2, assigneeId: omar.id },
-        { title: 'Agent messaging inbox', status: TaskStatus.IN_PROGRESS, priority: 2, assigneeId: lina.id },
+        { title: 'Agent messaging inbox', status: TaskStatus.IN_PROGRESS, priority: 2, assigneeId: lina.id, dueDate: offsetDays(-5) },
         { title: 'Listing card redesign', status: TaskStatus.DONE, priority: 1, assigneeId: karim.id },
-        { title: 'SEO metadata pass', status: TaskStatus.TODO, priority: 1, assigneeId: sara.id },
+        { title: 'SEO metadata pass', status: TaskStatus.TODO, priority: 1, assigneeId: sara.id, dueDate: offsetDays(7) },
       ],
       invoices: [
         { amount: 44_000, status: InvoiceStatus.PAID, dueDate: offsetDays(-50) },
         { amount: 44_000, status: InvoiceStatus.OVERDUE, dueDate: offsetDays(-4) },
         { amount: 44_000, status: InvoiceStatus.PENDING, dueDate: offsetDays(20) },
       ],
+      approvals: [
+        {
+          title: 'Listing card redesign',
+          description: 'New listing card with photo carousel and saved-search badge.',
+          status: ApprovalStatus.CHANGES_REQUESTED,
+          feedback:
+            'The price should sit above the address, and we need the agent photo back on the card.',
+          decidedAt: activityTime(7),
+          requestedById: karim.id,
+          createdAt: activityTime(12),
+        },
+        {
+          title: 'Map search interaction',
+          description: 'Draw-to-search, cluster behaviour and mobile bottom sheet.',
+          status: ApprovalStatus.PENDING,
+          requestedById: sara.id,
+          createdAt: activityTime(1),
+        },
+      ],
     },
   ]
 
   const createdProjects: Record<string, { id: string }> = {}
-  for (const { tasks, invoices, ...project } of projects) {
+  for (const { tasks, invoices, approvals, ...project } of projects) {
     const created = await prisma.project.create({
       data: {
         ...project,
         tasks: { create: tasks },
         invoices: { create: invoices },
+        approvals: { create: approvals },
       },
       select: { id: true },
     })
@@ -374,6 +479,27 @@ async function main() {
         createdAt: activityTime(6),
       },
       {
+        type: ActivityType.APPROVAL_REQUESTED,
+        message: 'Checkout flow prototype was sent to Helios Retail for approval.',
+        actorId: sara.id,
+        projectId: createdProjects['Helios Commerce Replatform']!.id,
+        createdAt: activityTime(2),
+      },
+      {
+        type: ActivityType.APPROVAL_APPROVED,
+        message: 'Helios Retail approved Homepage and category templates.',
+        actorId: helios.id,
+        projectId: createdProjects['Helios Commerce Replatform']!.id,
+        createdAt: activityTime(6),
+      },
+      {
+        type: ActivityType.APPROVAL_CHANGES_REQUESTED,
+        message: 'Crestview Realty requested changes on Listing card redesign.',
+        actorId: crestview.id,
+        projectId: createdProjects['Crestview Listings Platform']!.id,
+        createdAt: activityTime(7),
+      },
+      {
         type: ActivityType.USER_JOINED,
         message: 'Tarek Hassan joined as developer.',
         actorId: admin.id,
@@ -394,6 +520,7 @@ async function main() {
     projects: await prisma.project.count(),
     tasks: await prisma.task.count(),
     invoices: await prisma.invoice.count(),
+    approvals: await prisma.approval.count(),
     goals: await prisma.goal.count(),
     activity: await prisma.activity.count(),
   }

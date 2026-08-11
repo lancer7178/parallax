@@ -5,7 +5,12 @@ import * as React from 'react'
 import { useActionState } from 'react'
 import { toast } from 'sonner'
 
-import { FieldError, FormMessage, SubmitButton } from '@/components/form-parts'
+import {
+  FieldError,
+  FormMessage,
+  selectClass,
+  SubmitButton,
+} from '@/components/form-parts'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,10 +26,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createProject, updateProject } from '@/lib/actions/projects'
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from '@/lib/constants'
+import { toDateInput } from '@/lib/utils'
 import type { FormState } from '@/lib/validation'
-
-const selectClass =
-  'h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25'
 
 export type ProjectDefaults = {
   id: string
@@ -34,11 +37,6 @@ export type ProjectDefaults = {
   clientId: string
   deadline: Date | null
   budget: number | null
-}
-
-/** `<input type="date">` needs a `YYYY-MM-DD` value. */
-function toDateInput(date: Date | null) {
-  return date ? new Date(date).toISOString().slice(0, 10) : ''
 }
 
 export function ProjectDialog({

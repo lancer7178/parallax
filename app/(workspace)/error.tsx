@@ -24,13 +24,20 @@ export default function WorkspaceError({
       </span>
       <h2 className="text-lg font-semibold">Something went wrong</h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        {/* The message is safe to show: Server Actions here throw only
-            deliberate, non-sensitive errors. */}
-        {error.message || 'This view could not be loaded.'}
+        {/* Deliberately generic. The real error is logged above rather than
+            rendered: whatever threw may name a table, a column or a
+            constraint, and none of that belongs on screen. */}
+        We couldn&apos;t load this view. It is usually temporary.
       </p>
       <Button onClick={reset} className="mt-2">
         Try again
       </Button>
+      {/* The digest is what ties a user's report to the server log entry. */}
+      {error.digest ? (
+        <p className="font-mono text-xs text-muted-foreground/70">
+          Reference {error.digest}
+        </p>
+      ) : null}
     </Card>
   )
 }

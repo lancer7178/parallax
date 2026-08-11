@@ -7,6 +7,14 @@ import { useFormStatus } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+/**
+ * Native `<select>` styled to match `<Input>`. The Radix `Select` is reserved
+ * for menus that need a rich trigger — inside a form a native control keeps
+ * keyboard and mobile behaviour for free.
+ */
+export const selectClass =
+  'h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25'
+
 /** Submit button wired to the enclosing `<form>`'s pending state. */
 export function SubmitButton({
   children,

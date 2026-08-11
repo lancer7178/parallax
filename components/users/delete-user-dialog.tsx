@@ -46,8 +46,12 @@ export function DeleteUserDialog({
   const [pending, setPending] = React.useState(false)
   const [error, setError] = React.useState('')
 
-  // Reset state whenever dialog opens/closes
-  React.useEffect(() => {
+  // Reset whenever the dialog opens. Adjusting state during render rather
+  // than in an effect means the first paint of the reopened dialog already
+  // shows step one, instead of flashing the previous run's final step.
+  const [wasOpen, setWasOpen] = React.useState(open)
+  if (wasOpen !== open) {
+    setWasOpen(open)
     if (open) {
       setStep('confirm')
       setProjects([])
@@ -56,7 +60,7 @@ export function DeleteUserDialog({
       setPending(false)
       setError('')
     }
-  }, [open, otherClients])
+  }
 
   async function handleDelete(opts?: {
     strategy?: Strategy

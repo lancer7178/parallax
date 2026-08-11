@@ -147,6 +147,22 @@
   .recharts-surface:focus {
     outline: none;
   }
+
+  /* Motion here is decoration — hover lifts, dialog zooms, the sidebar rail.
+     None of it carries meaning, so a reader who asks for less motion loses
+     nothing by having all of it collapse to an instant change. `0.01ms`
+     rather than `0` keeps animation end events firing, which Radix relies on
+     to unmount exit transitions. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @utility scrollbar-thin {

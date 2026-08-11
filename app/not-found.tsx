@@ -13,7 +13,7 @@ export default function NotFound() {
         It may have been removed, or you may not have access to it.
       </p>
       <Button asChild className="mt-2">
-        <Link href="/">Back to your workspace</Link>
+        <Link href="/">Back to Parallax</Link>
       </Button>
     </main>
   )

@@ -2,12 +2,25 @@
 
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVerticalIcon, PencilIcon } from 'lucide-react'
+import {
+  AlertTriangleIcon,
+  CalendarIcon,
+  GripVerticalIcon,
+  PencilIcon,
+} from 'lucide-react'
 
 import { PriorityBadge } from '@/components/status-badge'
 import { UserAvatar } from '@/components/user-avatar'
+import { isTaskDueToday, isTaskOverdue } from '@/lib/health'
 import type { ProjectTask } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+
+/** Day and month only — the card has no room for a year that is almost always
+ *  the current one. */
+const shortDate = (date: Date | string) =>
+  new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
+    new Date(date)
+  )
 
 export function TaskCard({
   task,
@@ -20,6 +33,8 @@ export function TaskCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: task.id, disabled: !draggable })
+
+  const overdue = isTaskOverdue(task)
 
   return (
     <article
@@ -71,7 +86,28 @@ export function TaskCard({
       ) : null}
 
       <div className="mt-3 flex items-center justify-between gap-2">
-        <PriorityBadge priority={task.priority} />
+        <span className="flex items-center gap-1.5">
+          <PriorityBadge priority={task.priority} />
+          {task.dueDate ? (
+            <span
+              className={cn(
+                'flex items-center gap-1 text-xs',
+                overdue
+                  ? 'font-medium text-destructive'
+                  : isTaskDueToday(task)
+                    ? 'font-medium text-warning'
+                    : 'text-muted-foreground'
+              )}
+            >
+              {overdue ? (
+                <AlertTriangleIcon className="size-3" />
+              ) : (
+                <CalendarIcon className="size-3" />
+              )}
+              {shortDate(task.dueDate)}
+            </span>
+          ) : null}
+        </span>
         {task.assignee ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <UserAvatar

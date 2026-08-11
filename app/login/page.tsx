@@ -7,6 +7,7 @@ import {
   TerminalIcon,
 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 import { ThemeToggle } from '@/components/shell/theme-toggle'
 
@@ -15,13 +16,26 @@ import { LoginForm } from './login-form'
 export const metadata: Metadata = { title: 'Sign in' }
 
 /**
- * Shown on the sign-in card so reviewers can try each role. The private admin
- * account is intentionally absent — keep it that way.
+ * One-click demo accounts, presented by what the role *does* rather than by
+ * credentials — nobody evaluating the product wants to copy a password. The
+ * private admin account is intentionally absent; keep it that way.
  */
-const DEMO_ACCOUNTS: { email: string; role: string }[] = [
-  { email: 'abdulatef@parallax.agency', role: 'Developer' },
-  { email: 'nova@parallax.agency', role: 'Designer' },
-  { email: 'ops@helios-retail.com', role: 'Client' },
+const DEMO_ACCOUNTS = [
+  {
+    email: 'abdulatef@parallax.agency',
+    role: 'Developer',
+    blurb: 'Assigned projects, the task board and delivery work.',
+  },
+  {
+    email: 'sara@parallax.agency',
+    role: 'Designer',
+    blurb: 'Creative work, deliverables and client approvals.',
+  },
+  {
+    email: 'ops@helios-retail.com',
+    role: 'Client',
+    blurb: 'The client portal: progress, approvals and invoices.',
+  },
 ]
 const DEMO_PASSWORD = 'Parallax!2026'
 
@@ -77,7 +91,10 @@ export default async function LoginPage(props: PageProps<'/login'>) {
           className="pointer-events-none absolute -right-16 -bottom-24 size-96 rounded-full bg-white/10 blur-3xl"
         />
 
-        <div className="relative flex items-center gap-2.5">
+        <Link
+          href="/"
+          className="relative flex items-center gap-2.5 rounded-lg focus-visible:ring-2 focus-visible:ring-white/60 outline-none"
+        >
           <Image
             src="/parallax-logo.png"
             alt=""
@@ -89,7 +106,7 @@ export default async function LoginPage(props: PageProps<'/login'>) {
           <span className="text-[0.95rem] font-semibold tracking-tight">
             Parallax
           </span>
-        </div>
+        </Link>
 
         <div className="relative max-w-md space-y-9">
           <h2 className="text-3xl leading-tight font-semibold text-balance">
@@ -122,7 +139,10 @@ export default async function LoginPage(props: PageProps<'/login'>) {
       {/* Sign-in panel */}
       <div className="flex flex-1 flex-col bg-background">
         <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:justify-end">
-          <div className="flex items-center gap-2 lg:hidden">
+          <Link
+            href="/"
+            className="flex items-center gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-ring outline-none lg:hidden"
+          >
             <Image
               src="/parallax-logo.png"
               alt=""
@@ -134,7 +154,7 @@ export default async function LoginPage(props: PageProps<'/login'>) {
             <span className="text-sm font-semibold tracking-tight">
               Parallax
             </span>
-          </div>
+          </Link>
           <ThemeToggle />
         </div>
 

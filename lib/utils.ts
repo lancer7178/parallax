@@ -33,6 +33,11 @@ export function formatDate(date: Date | string | null | undefined) {
   return dateFormatter.format(new Date(date))
 }
 
+/** `<input type="date">` needs a `YYYY-MM-DD` value. */
+export function toDateInput(date: Date | string | null | undefined) {
+  return date ? new Date(date).toISOString().slice(0, 10) : ''
+}
+
 /** Whole days from now until `date`. Negative when the date is in the past. */
 export function daysUntil(date: Date | string) {
   const target = new Date(date).getTime()
