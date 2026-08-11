@@ -22,12 +22,16 @@ function Progress({
       value={value}
       {...props}
     >
+      {/* Sized rather than translated. `translateX` is a physical transform,
+          so a translated indicator fills from the left even under `dir="rtl"`
+          — a width grows from the inline start in whichever direction that
+          happens to be. */}
       <ProgressPrimitive.Indicator
         className={cn(
-          'h-full w-full flex-1 rounded-full bg-primary transition-transform duration-500',
+          'h-full rounded-full bg-primary transition-[width] duration-500',
           indicatorClassName
         )}
-        style={{ transform: `translateX(-${100 - (value ?? 0)}%)` }}
+        style={{ width: `${Math.min(Math.max(value ?? 0, 0), 100)}%` }}
       />
     </ProgressPrimitive.Root>
   )

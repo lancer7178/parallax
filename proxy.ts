@@ -8,9 +8,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 // The cookie is never trusted for authorization — `lib/dal.ts` verifies the
 // signed session next to the data on every page and Server Action.
 
-// Reachable without a session. `/` is the marketing page, which renders for
-// signed-in and signed-out visitors alike — it just swaps its call to action.
-const PUBLIC_PATHS = ['/', '/login']
+// Reachable without a session. `/` and `/ar` are the two language versions of
+// the marketing page, which renders for signed-in and signed-out visitors
+// alike — it just swaps its call to action.
+const PUBLIC_PATHS = ['/', '/ar', '/login']
 
 function hasSessionCookie(request: NextRequest) {
   return (

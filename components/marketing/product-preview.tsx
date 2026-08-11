@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import type { LandingDictionary } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 /**
@@ -18,9 +19,16 @@ import { cn } from '@/lib/utils'
  *
  * These are built from the same tokens, cards, badges and progress bars the
  * application uses, so the landing page cannot drift away from what people
- * actually get — and so both themes are handled for free. They are static by
- * design: no session, no database, nothing to load before the page paints.
+ * actually get — and so both themes and both text directions are handled for
+ * free. They are static by design: no session, no database, nothing to load
+ * before the page paints.
+ *
+ * Money is written with Latin numerals in both locales. Eastern Arabic
+ * numerals are correct in prose but agency finance tools are read alongside
+ * bank statements and invoices, which use Latin digits.
  */
+
+type Dict = LandingDictionary['preview']
 
 function Tile({
   label,
@@ -118,7 +126,7 @@ function ProjectRow({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium">{title}</p>
-          <p className="truncate text-[0.65rem] text-muted-foreground">
+          <p className="truncate text-[0.65rem] text-muted-foreground" dir="ltr">
             {client}
           </p>
         </div>
@@ -165,35 +173,41 @@ function Frame({
 }
 
 /** The hero visual: the operations dashboard, at a glance. */
-export function DashboardPreview({ className }: { className?: string }) {
+export function DashboardPreview({
+  t,
+  className,
+}: {
+  t: Dict
+  className?: string
+}) {
   return (
-    <Frame label="Parallax · Dashboard" className={className}>
+    <Frame label={t.dashboardFrame} className={className}>
       <div className="space-y-3 bg-muted/20 p-3">
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <Tile
-            label="Active projects"
+            label={t.kpi.activeProjects[0]}
             value="12"
-            hint="4 in flight"
+            hint={t.kpi.activeProjects[1]}
             icon={BriefcaseIcon}
           />
           <Tile
-            label="Outstanding"
+            label={t.kpi.outstanding[0]}
             value="$8,420"
-            hint="Not yet collected"
+            hint={t.kpi.outstanding[1]}
             icon={ReceiptIcon}
             tone="warning"
           />
           <Tile
-            label="This month"
+            label={t.kpi.thisMonth[0]}
             value="$24,820"
-            hint="Collected since the 1st"
+            hint={t.kpi.thisMonth[1]}
             icon={CheckIcon}
             tone="success"
           />
           <Tile
-            label="Overdue"
+            label={t.kpi.overdue[0]}
             value="$2,100"
-            hint="3 invoices past due"
+            hint={t.kpi.overdue[1]}
             icon={TriangleAlertIcon}
             tone="danger"
           />
@@ -202,34 +216,34 @@ export function DashboardPreview({ className }: { className?: string }) {
         <div className="grid gap-2 lg:grid-cols-5">
           <div className="rounded-xl border border-border bg-card lg:col-span-3">
             <div className="border-b border-border/60 px-3 py-2.5">
-              <p className="text-xs font-semibold">Needs your attention</p>
+              <p className="text-xs font-semibold">{t.attention.title}</p>
               <p className="text-[0.65rem] text-muted-foreground">
-                4 items to act on.
+                {t.attention.count}
               </p>
             </div>
             <div className="divide-y divide-border/60">
               <AttentionRow
                 icon={ReceiptIcon}
-                title="3 invoices overdue"
-                detail="$2,100 unpaid · oldest Aug 2"
+                title={t.attention.invoices[0]}
+                detail={t.attention.invoices[1]}
                 tone="danger"
               />
               <AttentionRow
                 icon={TriangleAlertIcon}
-                title="Helios Replatform is at risk"
-                detail="Budget 92% used at 76% complete"
+                title={t.attention.risk[0]}
+                detail={t.attention.risk[1]}
                 tone="danger"
               />
               <AttentionRow
                 icon={ClipboardCheckIcon}
-                title="1 client approval outstanding"
-                detail="Nova Technologies · Homepage v3"
+                title={t.attention.approval[0]}
+                detail={t.attention.approval[1]}
                 tone="warning"
               />
               <AttentionRow
                 icon={ClockIcon}
-                title="2 tasks due today"
-                detail="Across the agency"
+                title={t.attention.tasks[0]}
+                detail={t.attention.tasks[1]}
                 tone="warning"
               />
             </div>
@@ -237,23 +251,23 @@ export function DashboardPreview({ className }: { className?: string }) {
 
           <div className="rounded-xl border border-border bg-card lg:col-span-2">
             <div className="border-b border-border/60 px-3 py-2.5">
-              <p className="text-xs font-semibold">Projects in flight</p>
+              <p className="text-xs font-semibold">{t.projects.title}</p>
             </div>
             <div className="divide-y divide-border/60">
               <ProjectRow
-                title="Website Redesign"
-                client="Nova Technologies"
+                title={t.projects.website.title}
+                client={t.projects.website.client}
                 percent={84}
-                meta="18 of 21 tasks"
-                status="On track"
+                meta={t.projects.website.meta}
+                status={t.projects.website.status}
                 tone="info"
               />
               <ProjectRow
-                title="Brand System"
-                client="Helios Retail"
+                title={t.projects.brand.title}
+                client={t.projects.brand.client}
                 percent={62}
-                meta="11 of 18 tasks"
-                status="At risk"
+                meta={t.projects.brand.meta}
+                status={t.projects.brand.status}
                 tone="danger"
               />
             </div>
@@ -265,66 +279,76 @@ export function DashboardPreview({ className }: { className?: string }) {
 }
 
 /** What a client sees when they sign in — progress, approvals, invoices. */
-export function PortalPreview({ className }: { className?: string }) {
+export function PortalPreview({
+  t,
+  className,
+}: {
+  t: Dict
+  className?: string
+}) {
   return (
-    <Frame label="Parallax · Client portal" className={className}>
+    <Frame label={t.portalFrame} className={className}>
       <div className="space-y-3 bg-muted/20 p-3">
         <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border/60 px-3 py-2.5">
-            <p className="text-xs font-semibold">Website Redesign</p>
+            <p className="text-xs font-semibold">{t.portal.project}</p>
           </div>
           <div className="space-y-3 p-3">
             <div className="space-y-1.5">
               <Progress value={78} className="h-1.5" />
               <div className="flex justify-between text-[0.65rem] text-muted-foreground">
-                <span>14 of 18 deliverables complete</span>
+                <span>{t.portal.progress}</span>
                 <span className="font-medium text-foreground">78%</span>
               </div>
             </div>
 
             <ul className="space-y-1.5 text-[0.7rem]">
-              <li className="flex items-center gap-2">
-                <CheckIcon className="size-3 text-success" />
-                Homepage approved
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckIcon className="size-3 text-success" />
-                Mobile version delivered
-              </li>
+              {t.portal.updates.map((update) => (
+                <li key={update} className="flex items-center gap-2">
+                  <CheckIcon className="size-3 shrink-0 text-success" />
+                  {update}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
         <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
-          <p className="text-xs font-medium">Awaiting your approval</p>
+          <p className="text-xs font-medium">{t.portal.awaiting}</p>
           <p className="mt-0.5 text-[0.65rem] text-muted-foreground">
-            About page · sent Aug 10
+            {t.portal.awaitingMeta}
           </p>
           <div className="mt-2.5 flex gap-1.5">
             <span className="rounded-md bg-primary px-2 py-1 text-[0.65rem] font-medium text-primary-foreground">
-              Approve
+              {t.portal.approve}
             </span>
             <span className="rounded-md border border-border bg-card px-2 py-1 text-[0.65rem] font-medium">
-              Request changes
+              {t.portal.requestChanges}
             </span>
           </div>
         </div>
 
         <div className="rounded-xl border border-border bg-card divide-y divide-border/60">
-          <div className="flex items-center justify-between px-3 py-2.5 text-[0.7rem]">
-            <span className="font-mono text-muted-foreground">INV-0241</span>
-            <span className="font-medium tabular-nums">$2,400.00</span>
-            <Badge tone="success" className="text-[0.6rem]">
-              Paid
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between px-3 py-2.5 text-[0.7rem]">
-            <span className="font-mono text-muted-foreground">INV-0248</span>
-            <span className="font-medium tabular-nums">$1,200.00</span>
-            <Badge tone="warning" className="text-[0.6rem]">
-              Pending
-            </Badge>
-          </div>
+          {[
+            ['INV-0241', '$2,400.00', t.portal.paid, 'success'],
+            ['INV-0248', '$1,200.00', t.portal.pending, 'warning'],
+          ].map(([ref, amount, status, tone]) => (
+            <div
+              key={ref}
+              className="flex items-center justify-between px-3 py-2.5 text-[0.7rem]"
+            >
+              <span className="font-mono text-muted-foreground" dir="ltr">
+                {ref}
+              </span>
+              <span className="font-medium tabular-nums">{amount}</span>
+              <Badge
+                tone={tone as 'success' | 'warning'}
+                className="text-[0.6rem]"
+              >
+                {status}
+              </Badge>
+            </div>
+          ))}
         </div>
       </div>
     </Frame>
@@ -332,19 +356,27 @@ export function PortalPreview({ className }: { className?: string }) {
 }
 
 /** The project ↔ money relationship, which is the point of the product. */
-export function ProjectMoneyPreview({ className }: { className?: string }) {
+export function ProjectMoneyPreview({
+  t,
+  className,
+}: {
+  t: Dict
+  className?: string
+}) {
+  const figures = [
+    [t.finance.budget, '$8,000', t.finance.budgetHint],
+    [t.finance.invoiced, '$6,000', t.finance.invoicedHint],
+    [t.finance.paid, '$4,500', t.finance.paidHint],
+    [t.finance.outstanding, '$1,500', t.finance.outstandingHint],
+  ]
+
   return (
-    <Frame label="Parallax · Nova Website" className={className}>
+    <Frame label={t.projectFrame} className={className}>
       <div className="space-y-3 bg-muted/20 p-3">
         <div className="rounded-xl border border-border bg-card p-3">
-          <p className="text-xs font-semibold">Financial overview</p>
+          <p className="text-xs font-semibold">{t.finance.heading}</p>
           <dl className="mt-3 grid grid-cols-4 gap-2">
-            {[
-              ['Budget', '$8,000', ''],
-              ['Invoiced', '$6,000', '75% of budget'],
-              ['Paid', '$4,500', '75% collected'],
-              ['Outstanding', '$1,500', 'Nothing overdue'],
-            ].map(([label, value, hint]) => (
+            {figures.map(([label, value, hint]) => (
               <div key={label} className="min-w-0">
                 <dt className="truncate text-[0.6rem] font-medium tracking-wide text-muted-foreground uppercase">
                   {label}
@@ -360,14 +392,14 @@ export function ProjectMoneyPreview({ className }: { className?: string }) {
           <div className="mt-3 space-y-2 rounded-lg border border-border bg-muted/40 p-2.5">
             <div className="space-y-1">
               <div className="flex justify-between text-[0.65rem]">
-                <span className="text-muted-foreground">Budget invoiced</span>
+                <span className="text-muted-foreground">{t.finance.burn}</span>
                 <span className="font-medium tabular-nums">75%</span>
               </div>
               <Progress value={75} className="h-1.5" />
             </div>
             <div className="space-y-1">
               <div className="flex justify-between text-[0.65rem]">
-                <span className="text-muted-foreground">Work complete</span>
+                <span className="text-muted-foreground">{t.finance.work}</span>
                 <span className="font-medium tabular-nums">82%</span>
               </div>
               <Progress value={82} className="h-1.5" />
@@ -377,15 +409,17 @@ export function ProjectMoneyPreview({ className }: { className?: string }) {
 
         <div className="rounded-xl border border-border bg-card divide-y divide-border/60">
           {[
-            ['INV-0231', 'Paid', '$3,000.00', 'success'],
-            ['INV-0239', 'Paid', '$1,500.00', 'success'],
-            ['INV-0248', 'Pending', '$1,500.00', 'warning'],
-          ].map(([ref, status, amount, tone]) => (
+            ['INV-0231', '$3,000.00', t.portal.paid, 'success'],
+            ['INV-0239', '$1,500.00', t.portal.paid, 'success'],
+            ['INV-0248', '$1,500.00', t.portal.pending, 'warning'],
+          ].map(([ref, amount, status, tone]) => (
             <div
               key={ref}
               className="flex items-center justify-between px-3 py-2 text-[0.7rem]"
             >
-              <span className="font-mono text-muted-foreground">{ref}</span>
+              <span className="font-mono text-muted-foreground" dir="ltr">
+                {ref}
+              </span>
               <span className="font-medium tabular-nums">{amount}</span>
               <Badge
                 tone={tone as 'success' | 'warning'}
