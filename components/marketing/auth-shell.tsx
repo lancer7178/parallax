@@ -129,7 +129,7 @@ export function AuthShell({
     <main className="flex min-h-dvh flex-1">
       <BrandPanel headline={headline} />
 
-      <div className="flex flex-1 flex-col bg-background">
+      <div className="flex min-w-0 flex-1 flex-col bg-background">
         <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:justify-end">
           <Link
             href="/"
@@ -151,7 +151,14 @@ export function AuthShell({
         </div>
 
         <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6">
-          <div className={cn('w-full max-w-sm space-y-7', contentClassName)}>
+          {/* `min-w-0`: this column is a flex item, so without it a single
+              unwrappable descendant (long `overflow-x-auto` code snippet, an
+              untruncated string) can force the item to its content's natural
+              width instead of shrinking to fit a narrow phone — the classic
+              flexbox min-width:auto blowout. */}
+          <div
+            className={cn('w-full min-w-0 max-w-sm space-y-7', contentClassName)}
+          >
             <div className="space-y-1.5">
               <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
               <p className="text-sm text-muted-foreground">{description}</p>

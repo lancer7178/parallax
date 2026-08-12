@@ -1,13 +1,10 @@
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  ClipboardCheckIcon,
   KanbanSquareIcon,
-  LayoutDashboardIcon,
   LockIcon,
   ReceiptIcon,
   SearchIcon,
-  TrendingUpIcon,
   UsersIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -25,6 +22,19 @@ import { getSessionUser } from '@/lib/dal'
 import { getDictionary, isRtl, LOCALE_PATH, type Locale } from '@/lib/i18n'
 import { homePathFor } from '@/lib/rbac'
 import { cn } from '@/lib/utils'
+
+/**
+ * Real numbers from the seeded demo workspace (see `prisma/seed.ts`), read at
+ * build time rather than queried live — the landing page is public and
+ * unauthenticated, so it has no business touching the database on every
+ * visit. They're small, stable facts about the demo (project count, client
+ * count, collected revenue), not a claim about paying customers.
+ */
+const PROOF_STATS = {
+  active: '9',
+  clients: '6',
+  revenue: '$485K',
+}
 
 /**
  * The public landing page, in one locale.
@@ -60,17 +70,17 @@ export async function Landing({
     { icon: UsersIcon, ...t.pillars.collaborate },
   ]
 
-  const features: { icon: LucideIcon; title: string; body: string }[] = [
-    { icon: LayoutDashboardIcon, ...t.features.attention },
-    { icon: TrendingUpIcon, ...t.features.health },
-    { icon: ClipboardCheckIcon, ...t.features.approvals },
-    { icon: SearchIcon, ...t.features.search },
-    { icon: LockIcon, ...t.features.roles },
-    { icon: ReceiptIcon, ...t.features.money },
+  // What the hero's own screenshot already shows, captioned rather than
+  // re-explained in a second section — see the note on `hero.highlights`.
+  const highlights = [t.hero.highlights.attention, t.hero.highlights.health]
+
+  const proofChips: { icon: LucideIcon; label: string }[] = [
+    { icon: LockIcon, label: t.proof.chips[0] },
+    { icon: SearchIcon, label: t.proof.chips[1] },
   ]
 
   const calls = (
-    <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+    <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
       <Button size="lg" asChild>
         <Link href={user ? homePath : '/register'}>
           {ctaLabel}
@@ -97,7 +107,8 @@ export async function Landing({
       />
 
       <main className="flex-1">
-        {/* Hero */}
+        {/* Hero + real product preview, in one section rather than two —
+            the screenshot below is the point, not a decorative afterthought. */}
         <section className="relative overflow-hidden border-b border-border/60">
           <div
             aria-hidden
@@ -109,7 +120,7 @@ export async function Landing({
             }}
           />
 
-          <div className="relative mx-auto w-full max-w-6xl px-4 pt-16 pb-12 sm:px-6 sm:pt-24">
+          <div className="relative mx-auto w-full max-w-6xl px-4 pt-14 pb-10 sm:px-6 sm:pt-20">
             <div className="mx-auto max-w-3xl text-center">
               <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
                 {t.hero.eyebrow}
@@ -128,20 +139,37 @@ export async function Landing({
               </p>
             </div>
 
-            <div className="mt-14 sm:mt-16">
+            <div className="mt-9 sm:mt-10">
               <DashboardPreview t={t.preview} />
             </div>
+
+            {/* Captions the screenshot rather than re-stating it in a whole
+                separate "features" section further down the page — one
+                compact line, not a second card grid. */}
+            <p className="mx-auto mt-5 max-w-2xl text-center text-sm text-balance text-muted-foreground">
+              <strong className="font-medium text-foreground">
+                {highlights[0]!.title}
+              </strong>{' '}
+              — {highlights[0]!.body}
+              <span className="mx-2 text-border" aria-hidden>
+                ·
+              </span>
+              <strong className="font-medium text-foreground">
+                {highlights[1]!.title}
+              </strong>{' '}
+              — {highlights[1]!.body}
+            </p>
           </div>
         </section>
 
-        {/* Pillars */}
+        {/* Pillars — the core value, in three words. */}
         <section id="product" className="border-b border-border/60 scroll-mt-16">
-          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
             <h2 className="max-w-xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
               {t.pillars.heading}
             </h2>
 
-            <div className="mt-10 grid gap-8 sm:grid-cols-3">
+            <div className="mt-8 grid gap-8 sm:grid-cols-3">
               {pillars.map((pillar) => (
                 <div key={pillar.title} className="space-y-3">
                   <span className="flex size-10 items-center justify-center rounded-xl bg-primary/12 text-primary">
@@ -157,9 +185,27 @@ export async function Landing({
           </div>
         </section>
 
-        {/* Client portal */}
+        {/* Project ↔ finance — how the work connects to the money, before
+            showing what the client sees of that same connection. */}
+        <section className="border-b border-border/60">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 sm:py-14 lg:grid-cols-2 lg:gap-16">
+            <ProjectMoneyPreview
+              t={t.preview}
+              className="order-last lg:order-first"
+            />
+
+            <div className="space-y-5">
+              <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+                {t.money.heading}
+              </h2>
+              <p className="text-muted-foreground">{t.money.body}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Client portal — the same connection, from the client's side. */}
         <section id="clients" className="border-b border-border/60 scroll-mt-16">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-2 lg:gap-16">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 sm:py-14 lg:grid-cols-2 lg:gap-16">
             <div className="space-y-5">
               <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
                 {t.portal.heading}
@@ -182,40 +228,62 @@ export async function Landing({
           </div>
         </section>
 
-        {/* Project ↔ finance */}
-        <section className="border-b border-border/60">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-2 lg:gap-16">
-            <ProjectMoneyPreview
-              t={t.preview}
-              className="order-last lg:order-first"
-            />
-
-            <div className="space-y-5">
-              <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-                {t.money.heading}
-              </h2>
-              <p className="text-muted-foreground">{t.money.body}</p>
-              <p className="text-muted-foreground">{t.money.extra}</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Features */}
+        {/* Proof — real, small, labeled numbers from the seeded demo, plus
+            the two differentiators (search, role enforcement) that don't
+            already appear in an earlier screenshot. Reuses the nav's
+            `#features` anchor; it's still the section for "why this holds
+            together", just no longer six restated paragraphs. */}
         <section id="features" className="border-b border-border/60 scroll-mt-16">
-          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-            <h2 className="max-w-xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-              {t.features.heading}
+          {/* Deliberately tighter than the sections above — the brief for
+              this section is "small, tasteful", not a fourth full-height
+              block. */}
+          <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
+            <h2 className="mx-auto max-w-2xl text-center text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+              {t.proof.heading}
             </h2>
 
-            <div className="mt-10 grid gap-x-10 gap-y-9 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((feature) => (
-                <div key={feature.title} className="space-y-2.5">
-                  <feature.icon className="size-5 text-primary" />
-                  <h3 className="font-semibold">{feature.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {feature.body}
-                  </p>
-                </div>
+            <dl className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-4 text-center">
+              <div>
+                <dt className="sr-only">{t.proof.stats.active}</dt>
+                <dd className="text-3xl font-semibold tabular-nums sm:text-4xl">
+                  {PROOF_STATS.active}
+                </dd>
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  {t.proof.stats.active}
+                </p>
+              </div>
+              <div>
+                <dt className="sr-only">{t.proof.stats.clients}</dt>
+                <dd className="text-3xl font-semibold tabular-nums sm:text-4xl">
+                  {PROOF_STATS.clients}
+                </dd>
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  {t.proof.stats.clients}
+                </p>
+              </div>
+              <div>
+                <dt className="sr-only">{t.proof.stats.revenue}</dt>
+                <dd className="text-3xl font-semibold tabular-nums sm:text-4xl">
+                  {PROOF_STATS.revenue}
+                </dd>
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  {t.proof.stats.revenue}
+                </p>
+              </div>
+            </dl>
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              {t.proof.note}
+            </p>
+
+            <div className="mx-auto mt-6 flex max-w-xl flex-col gap-2.5 sm:flex-row sm:justify-center">
+              {proofChips.map((chip) => (
+                <span
+                  key={chip.label}
+                  className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm text-muted-foreground"
+                >
+                  <chip.icon className="size-4 shrink-0 text-primary" />
+                  {chip.label}
+                </span>
               ))}
             </div>
           </div>
@@ -223,13 +291,16 @@ export async function Landing({
 
         {/* Final CTA */}
         <section>
-          <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+          <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
                 {t.cta.heading}
               </h2>
               <p className="mt-4 text-muted-foreground">{t.cta.body}</p>
               {calls}
+              <p className="mt-6 text-sm font-medium text-muted-foreground">
+                {t.cta.supporting}
+              </p>
             </div>
           </div>
         </section>

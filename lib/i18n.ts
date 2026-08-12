@@ -62,20 +62,30 @@ export type LandingDictionary = {
     subheading: string
     demo: string
     demoHint: string
+    /**
+     * Captions under the hero's real product preview — what the "Needs your
+     * attention" list and the health badge in that same screenshot actually
+     * mean. Kept here rather than as their own section: the preview already
+     * shows both, so a full second section repeating them in prose would be
+     * exactly the redundancy this page is trying not to have.
+     */
+    highlights: { attention: Feature; health: Feature }
   }
   pillars: { heading: string; deliver: Pillar; bill: Pillar; collaborate: Pillar }
   portal: { heading: string; body: string; points: [string, string, string] }
-  money: { heading: string; body: string; extra: string }
-  features: {
+  money: { heading: string; body: string }
+  /**
+   * The small trust section: real numbers from the seeded demo workspace
+   * (never invented), plus the two differentiators — search and role
+   * enforcement — that don't already appear in an earlier preview or section.
+   */
+  proof: {
     heading: string
-    attention: Feature
-    health: Feature
-    approvals: Feature
-    search: Feature
-    roles: Feature
-    money: Feature
+    stats: { active: string; clients: string; revenue: string }
+    note: string
+    chips: [string, string]
   }
-  cta: { heading: string; body: string }
+  cta: { heading: string; body: string; supporting: string }
   footer: { tagline: string }
   /** Labels inside the product previews — the screenshots are live markup. */
   preview: {
@@ -156,6 +166,16 @@ const en: LandingDictionary = {
     demo: 'Explore demo',
     demoHint:
       'The demo signs you straight in as a developer, designer or client.',
+    highlights: {
+      attention: {
+        title: 'Needs your attention',
+        body: 'Surfaced automatically, above — never a feed to scroll.',
+      },
+      health: {
+        title: 'Project health',
+        body: '"Budget 92% used at 76% complete" — arithmetic, not a guess.',
+      },
+    },
   },
   pillars: {
     heading: 'Everything between brief and payment.',
@@ -184,39 +204,24 @@ const en: LandingDictionary = {
   money: {
     heading: 'Projects and money, finally connected.',
     body: 'Every invoice belongs to a project, so budget, billing and delivery sit on one page. When billing runs ahead of the work, Parallax says so — with the two numbers that prove it.',
-    extra:
-      'No exports, no second spreadsheet, no reconciling the board against the books at month end.',
   },
-  features: {
-    heading: 'Built for the way agencies actually work.',
-    attention: {
-      title: 'An attention centre, not a feed',
-      body: 'Overdue invoices, late tasks, projects slipping and approvals waiting — one list, every item a link to the thing itself.',
+  proof: {
+    heading: 'Projects, clients, billing and revenue — one workspace, not five tabs.',
+    stats: {
+      active: 'Projects managed',
+      clients: 'Clients on the books',
+      revenue: 'Collected to date',
     },
-    health: {
-      title: 'Health you can explain',
-      body: 'Projects are flagged by arithmetic, never a guess: budget 92% used at 76% complete says exactly why.',
-    },
-    approvals: {
-      title: 'Approvals as real objects',
-      body: 'Send a deliverable, get an approval or written feedback back. Both sides read the same record.',
-    },
-    search: {
-      title: 'Everything a keystroke away',
-      body: 'Press ⌘K and search projects, clients, tasks and invoices at once, scoped to what you are allowed to see.',
-    },
-    roles: {
-      title: 'Roles enforced at the data layer',
-      body: 'Clients reach their own projects and nothing else. Permission checks live next to the queries, not in the buttons.',
-    },
-    money: {
-      title: 'Money attached to work',
-      body: 'Every invoice hangs off a project, so revenue, budget and delivery are never three separate stories.',
-    },
+    note: 'Real numbers from the seeded demo workspace — explore it yourself.',
+    chips: [
+      'Roles enforced at the data layer, not the buttons',
+      'Press ⌘K to search everything at once',
+    ],
   },
   cta: {
-    heading: 'Less admin. More making.',
-    body: 'Put delivery, clients and billing in the same workspace and stop reassembling the picture by hand.',
+    heading: 'Your agency, finally in sync.',
+    body: 'Projects, clients, approvals and billing — connected from day one.',
+    supporting: 'Less admin. More making.',
   },
   footer: { tagline: 'The operating system for your agency.' },
   preview: {
@@ -308,6 +313,16 @@ const ar: LandingDictionary = {
     subheading: 'المشاريع والعملاء والفواتير والإيرادات — مترابطة في مكان واحد.',
     demo: 'جرّب النسخة التجريبية',
     demoHint: 'تدخلك النسخة التجريبية مباشرةً كمطوّر أو مصمّم أو عميل.',
+    highlights: {
+      attention: {
+        title: 'ما يحتاج انتباهك',
+        body: 'يظهر تلقائيًا في الأعلى — لا خلاصة تمرّرها بلا نهاية.',
+      },
+      health: {
+        title: 'حالة المشروع',
+        body: '«استُهلك 92% من الميزانية عند إنجاز 76%» — حساب، لا تخمين.',
+      },
+    },
   },
   pillars: {
     heading: 'كل ما بين الموجز والسداد.',
@@ -336,39 +351,24 @@ const ar: LandingDictionary = {
   money: {
     heading: 'المشاريع والمال، مترابطان أخيرًا.',
     body: 'كل فاتورة تتبع مشروعًا، لتجتمع الميزانية والفوترة والتنفيذ في صفحة واحدة. وحين تسبق الفوترة سير العمل، ينبّهك Parallax إلى ذلك — بالرقمين اللذين يثبتان الأمر.',
-    extra:
-      'بلا تصدير، وبلا جدول بيانات ثانٍ، وبلا مطابقة لوحة المهام مع الدفاتر في نهاية الشهر.',
   },
-  features: {
-    heading: 'مصمّم بالطريقة التي تعمل بها الوكالات فعلًا.',
-    attention: {
-      title: 'مركز انتباه، لا خلاصة أخبار',
-      body: 'فواتير متأخرة، ومهام فات موعدها، ومشاريع تتعثّر، وموافقات تنتظر — قائمة واحدة، كل عنصر فيها رابط إلى الشيء نفسه.',
+  proof: {
+    heading: 'المشاريع والعملاء والفوترة والإيرادات — مساحة عمل واحدة، لا خمس تبويبات.',
+    stats: {
+      active: 'مشروعًا قيد الإدارة',
+      clients: 'عميلًا في الدفاتر',
+      revenue: 'محصَّل حتى الآن',
     },
-    health: {
-      title: 'حالة يمكنك تفسيرها',
-      body: 'تُصنَّف المشاريع بالحساب لا بالتخمين: «استُهلك 92% من الميزانية عند إنجاز 76%» يقول السبب بالضبط.',
-    },
-    approvals: {
-      title: 'الموافقات ككيانات حقيقية',
-      body: 'أرسل تسليمًا، واستقبل موافقة أو ملاحظات مكتوبة. ويقرأ الطرفان السجل نفسه.',
-    },
-    search: {
-      title: 'كل شيء على بُعد ضغطة مفتاح',
-      body: 'اضغط ⌘K وابحث في المشاريع والعملاء والمهام والفواتير دفعة واحدة، ضمن ما يُسمح لك برؤيته.',
-    },
-    roles: {
-      title: 'صلاحيات مطبَّقة في طبقة البيانات',
-      body: 'لا يصل العملاء إلا إلى مشاريعهم. وتقع فحوص الصلاحيات بجوار الاستعلامات، لا في الأزرار.',
-    },
-    money: {
-      title: 'مال مرتبط بالعمل',
-      body: 'كل فاتورة معلّقة بمشروع، فلا تصبح الإيرادات والميزانية والتنفيذ ثلاث حكايات منفصلة.',
-    },
+    note: 'أرقام حقيقية من مساحة العمل التجريبية المزروعة — جرّبها بنفسك.',
+    chips: [
+      'الصلاحيات مطبَّقة في طبقة البيانات، لا في الأزرار',
+      'اضغط ⌘K وابحث في كل شيء دفعة واحدة',
+    ],
   },
   cta: {
-    heading: 'إدارة أقل. إنجاز أكثر.',
-    body: 'اجمع التنفيذ والعملاء والفوترة في مساحة عمل واحدة، وتوقّف عن تجميع الصورة يدويًا.',
+    heading: 'وكالتك، متناغمة أخيرًا.',
+    body: 'المشاريع والعملاء والموافقات والفوترة — مترابطة منذ اليوم الأول.',
+    supporting: 'إدارة أقل. إنجاز أكثر.',
   },
   footer: { tagline: 'نظام التشغيل الخاص بوكالتك.' },
   preview: {

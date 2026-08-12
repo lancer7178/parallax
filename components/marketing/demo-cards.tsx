@@ -27,7 +27,11 @@ export function DemoCards({ compact = false }: { compact?: boolean }) {
     <div className="space-y-3">
       <div className={compact ? 'grid gap-1.5' : 'grid gap-3 sm:grid-cols-3'}>
         {DEMO_ACCOUNTS.map((account) => (
-          <form key={account.slug} action={action}>
+          // `min-w-0`: each form is a grid item, so without it the truncated
+          // blurb inside can't actually shrink — the grid track sizes to the
+          // blurb's full unwrapped width instead of the truncate CSS taking
+          // over, and the row overflows a narrow phone.
+          <form key={account.slug} action={action} className="min-w-0">
             <input type="hidden" name="slug" value={account.slug} />
             <button
               type="submit"
