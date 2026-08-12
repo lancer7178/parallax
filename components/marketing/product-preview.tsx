@@ -375,7 +375,9 @@ export function ProjectMoneyPreview({
       <div className="space-y-3 bg-muted/20 p-3">
         <div className="rounded-xl border border-border bg-card p-3">
           <p className="text-xs font-semibold">{t.finance.heading}</p>
-          <dl className="mt-3 grid grid-cols-4 gap-2">
+          {/* 2 columns below `xs` so labels like "Outstanding" get room to
+              read instead of truncating in a ~70px cell. */}
+          <dl className="mt-3 grid grid-cols-2 gap-2 min-[420px]:grid-cols-4">
             {figures.map(([label, value, hint]) => (
               <div key={label} className="min-w-0">
                 <dt className="truncate text-[0.6rem] font-medium tracking-wide text-muted-foreground uppercase">

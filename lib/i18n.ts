@@ -46,8 +46,15 @@ export type LandingDictionary = {
     sectionsLabel: string
     signIn: string
     start: string
+    /**
+     * The same call to action, short enough to sit next to a menu button on a
+     * 320px phone. `start` does not fit there — the button cannot shrink, so a
+     * long label pushes the whole header into horizontal scroll.
+     */
+    startShort: string
     openWorkspace: string
     languageLabel: string
+    menuLabel: string
   }
   hero: {
     eyebrow: string
@@ -136,8 +143,10 @@ const en: LandingDictionary = {
     sectionsLabel: 'Sections',
     signIn: 'Sign in',
     start: 'Start your workspace',
+    startShort: 'Start free',
     openWorkspace: 'Open workspace',
     languageLabel: 'Language',
+    menuLabel: 'Menu',
   },
   hero: {
     eyebrow: 'The operating system for your agency',
@@ -288,8 +297,10 @@ const ar: LandingDictionary = {
     sectionsLabel: 'الأقسام',
     signIn: 'تسجيل الدخول',
     start: 'ابدأ مساحة عملك',
+    startShort: 'ابدأ مجانًا',
     openWorkspace: 'افتح مساحة العمل',
     languageLabel: 'اللغة',
+    menuLabel: 'القائمة',
   },
   hero: {
     eyebrow: 'نظام التشغيل الخاص بوكالتك',
