@@ -27,6 +27,13 @@ export const canDecideApprovals = (role: Role) => role === 'CLIENT'
 /** Staff send deliverables for sign-off; clients never create their own. */
 export const canRequestApprovals = (role: Role) => role !== 'CLIENT'
 
+/**
+ * Who can attach a file to a project or remove one. Clients read the files
+ * shared with them but never add to the project themselves — the filter that
+ * decides *which* files they read lives in `lib/queries.ts`.
+ */
+export const canManageFiles = (role: Role) => role !== 'CLIENT'
+
 export const canManageProjects = (role: Role) => role === 'ADMIN'
 
 export const canManageTasks = (role: Role) => role !== 'CLIENT'

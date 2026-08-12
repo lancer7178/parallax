@@ -13,6 +13,7 @@ import { InvoiceDialog } from '@/components/invoices/invoice-dialog'
 import { InvoiceStatusSelect } from '@/components/invoices/invoice-status-select'
 import { ProjectBoard } from '@/components/projects/project-board'
 import { ProjectDialog } from '@/components/projects/project-dialog'
+import { ProjectFiles } from '@/components/projects/project-files'
 import { ProjectFinanceCard } from '@/components/projects/project-finance'
 import { ProjectTimeline } from '@/components/projects/project-timeline'
 import { StatCard } from '@/components/stat-card'
@@ -43,6 +44,7 @@ import {
 } from '@/lib/queries'
 import {
   canDecideApprovals,
+  canManageFiles,
   canManageInvoices,
   canManageProjects,
   canManageTasks,
@@ -72,6 +74,7 @@ export default async function ProjectDetailPage(
 
   const canEditProject = canManageProjects(user.role)
   const canEditTasks = canManageTasks(user.role)
+  const canEditFiles = canManageFiles(user.role)
   const canBill = canManageInvoices(user.role)
 
   const [assignees, clients, activity] = await Promise.all([
@@ -267,6 +270,15 @@ export default async function ProjectDetailPage(
         canDecide={
           canDecideApprovals(user.role) && project.client.id === user.id
         }
+      />
+
+      {/* Files sit between the deliverable and the work: the client reads the
+          shared ones here, the team reads all of them. `getProject` has
+          already dropped the internal rows from a client's payload. */}
+      <ProjectFiles
+        projectId={project.id}
+        files={project.files}
+        canManage={canEditFiles}
       />
 
       {/* Clients follow progress through approvals and the summary above; the

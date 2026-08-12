@@ -72,13 +72,13 @@ export async function Landing({
   const calls = (
     <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
       <Button size="lg" asChild>
-        <Link href={user ? homePath : '/login'}>
+        <Link href={user ? homePath : '/register'}>
           {ctaLabel}
           <ArrowIcon />
         </Link>
       </Button>
       <Button size="lg" variant="outline" asChild>
-        <Link href="/login#demo">{t.hero.demo}</Link>
+        <Link href="/demo">{t.hero.demo}</Link>
       </Button>
     </div>
   )

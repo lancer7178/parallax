@@ -56,6 +56,7 @@ enum ActivityType {
   APPROVAL_REQUESTED
   APPROVAL_APPROVED
   APPROVAL_CHANGES_REQUESTED
+  FILE_ADDED
 }
 
 // --- Models ---
@@ -75,6 +76,7 @@ model User {
   assignedTasks  Task[]    @relation("AssignedTasks")
   activities     Activity[]
   requestedApprovals Approval[] @relation("RequestedApprovals")
+  uploadedFiles  ProjectFile[] @relation("UploadedFiles")
 }
 
 model Project {
@@ -95,6 +97,7 @@ model Project {
   invoices   Invoice[]
   activities Activity[]
   approvals  Approval[]
+  files      ProjectFile[]
 
   @@index([clientId])
   @@index([status])
@@ -169,6 +172,38 @@ model Approval {
 
   @@index([projectId])
   @@index([status])
+}
+
+/**
+ * A file that belongs to a project — a design, a spec, a signed-off asset.
+ *
+ * Deliberately a *reference*, not a blob: `url` points at wherever the file
+ * already lives (Figma, Drive, Dropbox, a CDN). The product's job is to say
+ * which file belongs to which project, who put it there and which version it
+ * is — not to become storage. Adding real uploads later means adding an object
+ * store behind `url`, not changing this model.
+ *
+ * `sharedWithClient` is the isolation switch. Working files stay agency-only;
+ * only a shared file reaches the client's project view, and the filter is
+ * applied in `lib/queries.ts` rather than in the component.
+ */
+model ProjectFile {
+  id   String @id @default(uuid())
+  name String
+  url  String
+  /** Bumped by hand when a new revision replaces an older one. */
+  version          Int     @default(1)
+  sharedWithClient Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  uploadedById String?
+  uploadedBy   User?   @relation("UploadedFiles", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
 }
 
 /**

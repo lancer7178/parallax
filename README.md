@@ -64,10 +64,17 @@ compile error rather than a silent privilege grant.
 | `hello@northwindlabs.io`    | Client    | `/portal`    |
 | `it@meridianhealth.co`      | Client    | `/portal`    |
 
-The login page (`app/login/page.tsx`) also offers one-click demo sign-in
-buttons for a Developer, a Designer and a Client. Its `DEMO_ACCOUNTS` list is
-hand-maintained separately from `prisma/seed.ts` rather than generated from
-it, so if you rename or remove a seeded account, check that list too.
+`/demo` and the login page both offer one-click demo sign-in for a Developer, a
+Designer and a Client. The browser only ever sends a **slug** (`developer`,
+`designer`, `client`): `enterDemo` in `lib/actions/auth.ts` looks the account up
+in `lib/demo.ts`, reads `SEED_PASSWORD` from the server environment and signs in
+server-side, so no demo password is ever shipped to the client. The list is
+typed `Exclude<Role, 'ADMIN'>`, making an admin demo account a compile error.
+
+`lib/demo.ts` is hand-maintained separately from `prisma/seed.ts` rather than
+generated from it, so if you rename or remove a seeded account, check that list
+too — `enterDemo` returns a "demo data has not been seeded" message rather than
+failing silently when they disagree.
 
 ---
 
@@ -78,6 +85,40 @@ sign-in. Its product previews (`components/marketing/product-preview.tsx`) are
 built from the application's own cards, badges and tokens, so they cannot drift
 from the product and they handle both themes for free. `proxy.ts` treats `/` as
 public; signed-in visitors get an "Open workspace" call to action instead.
+
+**Four public entry points**, sharing one frame (`components/marketing/auth-shell.tsx`)
+so moving between them doesn't change the page's shape:
+
+| Route       | Purpose                                                       |
+| ----------- | ------------------------------------------------------------- |
+| `/`, `/ar`  | Marketing page, English and Arabic                              |
+| `/login`    | Sign in                                                         |
+| `/register` | Self-service **client** sign-up                                 |
+| `/demo`     | One-click sign-in as a Developer, Designer or Client            |
+
+**Self-service registration** — `/register` creates a `CLIENT` account and signs
+it straight in. The role is a literal in `register()`, never read from the form,
+so this public endpoint cannot mint an agency account no matter what is posted
+to it; developers, designers and admins stay admin-provisioned from `/team`. The
+form works without JavaScript (progressive enhancement), and the page says
+plainly that agency seats are not self-serve rather than letting someone find
+out after signing up.
+
+**Project files** — every project carries a file list: name, type, version,
+who added it and when (`components/projects/project-files.tsx`). Files are
+stored as **references, not blobs** — `ProjectFile.url` points at wherever the
+file already lives (Figma, Drive, a CDN), which is why the UI says "link a file"
+rather than "upload". `sharedWithClient` is the isolation switch: unshared files
+never enter a client's payload, and only shared ones produce a `FILE_ADDED`
+activity entry, since the client reads that timeline too. URLs are restricted to
+`http(s)` at the schema level so an attachment can't become stored XSS.
+
+**Notifications** — the bell in the top bar carries the same derived attention
+items the dashboard leads with, so they're reachable from any page, plus recent
+activity for context. Nothing is stored: there is no read/unread state, and an
+item disappears when the fact behind it is resolved. The badge comes from a
+counts-only query in the layout (`countAttention`); the list itself is fetched
+only when the panel is opened.
 
 **Attention centre** — the first thing on the dashboard, and the answer to
 "what do I do next". Overdue invoices, projects at risk, tasks past due or due
@@ -143,6 +184,8 @@ deleting their own account.
 | Budgets, revenue, invoices | ✓ | — | own only |
 | Send deliverables for approval | ✓ | ✓ | — |
 | Approve / request changes | — | — | own only |
+| Add / remove project files | ✓ | ✓ | — |
+| Read project files | ✓ | ✓ | shared only |
 | Manage clients & team | ✓ | — | — |
 | Edit own account (`/settings`) | ✓ | ✓ | ✓ |
 
@@ -198,7 +241,20 @@ is the one deliberate exception — it authorizes against the caller's own id
 rather than a role, since every role may manage its own account.
 
 Financial data is *omitted from the response*, not hidden with CSS — a
-designer's project page contains no budget or invoice markup at all.
+designer's project page contains no budget or invoice markup at all. The same
+applies to unshared project files: they are filtered out of a client's payload
+in `lib/queries.ts`, so the "Internal" badge is a label for the agency, never
+the thing doing the hiding.
+
+Two scoping helpers do this work, and they are not interchangeable:
+
+- `projectScope(user)` — which *rows* a user may reach.
+- `activityScope(user)` — which *events* a user may read. Activity messages are
+  prose written by `logActivity`, and the invoice ones quote the amount
+  (`"$4,500 invoice paid for Nova Website"`). Filtering by column alone would
+  have let a designer read agency revenue out of the feed, so `INVOICE_*` events
+  are excluded for any role that cannot see money, and clients additionally only
+  ever see client-safe events on their own projects.
 
 ### Layout
 
@@ -216,20 +272,25 @@ app/
     settings/              self-service account editing (every role)
     portal/                client portal
   login/                  credentials sign-in + demo quick sign-in
+  register/               self-service client sign-up
+  demo/                   role-based one-click demo sign-in
   api/auth/[...nextauth]/ Auth.js route handlers
 auth.ts                   NextAuth v5 config (Credentials + JWT sessions)
 proxy.ts                  optimistic route gate
 lib/
   dal.ts  rbac.ts         authorization
   queries.ts              role-scoped reads
-  actions/                Server Actions (mutations): account, auth, invoices,
-                           projects, tasks, users
+  demo.ts                 demo account list (never the password)
+  files.ts                file kind/extension derivation
+  actions/                Server Actions (mutations): account, auth, files,
+                           invoices, notifications, projects, tasks, users
   validation.ts           Zod schemas + form state
   prisma.ts  constants.ts utils.ts
 components/
   ui/                     Radix-based primitives
   charts/                 Recharts wrappers
   kanban/                 drag-and-drop board
+  marketing/              landing page, shared auth frame, demo cards
   projects/  invoices/  tasks/  settings/  users/  shell/
 prisma/                   schema.prisma, seed.ts, migrations/
 scripts/                  set-password.ts, delete-user.ts
@@ -308,19 +369,17 @@ there too to make the deletion stick.
 
 ## Known gaps
 
-The database schema is implemented exactly as specified. A few consequences
-worth noting:
-
-- **Project files** have no model or storage. `Approval` carries the
-  deliverable's title, description and the client's feedback, which covers the
-  review loop; attaching actual files needs a `File` model plus object storage.
+- **File storage.** `ProjectFile` records *where* a file lives, not the file
+  itself, so there is no upload widget and no bytes to serve. Real uploads mean
+  putting an object store behind `url` — an additive change: the model, the
+  permissions and the client-visibility filter all stay as they are.
+- **One workspace, not many.** There is no `Workspace`/tenant model: the schema
+  describes a single agency. That is why `/register` creates a *client* account
+  rather than a new workspace. Multi-tenancy would mean a `workspaceId` on every
+  model and in every query — real work, and a different product decision.
 - **Free-form comments** exist only as approval feedback. General per-task or
   per-project threads would need a `Comment` model related to `Project`,
   `Task` and `User`.
-- **Self-service registration** is deliberately absent: accounts are created by
-  an admin from `/team` and `/clients`, so there is no `/register` route. The
-  landing page's calls to action lead to sign-in and the one-click demo
-  accounts instead.
 - **Kanban column ordering** is not persisted — `Task` has no `order` field, so
   cards within a column sort by priority then recency.
 - **No automated test suite.** There's no `tests/`, e2e runner, or `npm test`

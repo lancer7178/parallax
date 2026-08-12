@@ -8,6 +8,7 @@ import * as React from 'react'
 
 import { CommandPalette } from '@/components/shell/command-palette'
 import { sectionLabelFor } from '@/components/shell/nav'
+import { Notifications } from '@/components/shell/notifications'
 import { SidebarNav } from '@/components/shell/sidebar-nav'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -116,9 +117,12 @@ function SidebarFooter({ user }: { user: SessionUser }) {
 
 export function AppShell({
   user,
+  attentionCount,
   children,
 }: {
   user: SessionUser
+  /** Badge value for the bell, computed per navigation by the layout. */
+  attentionCount: number
   children: React.ReactNode
 }) {
   const pathname = usePathname()
@@ -190,6 +194,7 @@ export function AppShell({
 
           <div className="ml-auto flex items-center gap-1.5">
             <CommandPalette role={user.role} />
+            <Notifications initialCount={attentionCount} />
             <ThemeToggle />
             <UserMenu user={user} />
           </div>

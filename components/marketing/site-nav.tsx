@@ -134,7 +134,7 @@ export function SiteNav({
                 <Link href="/login">{t.signIn}</Link>
               </Button>
               <Button size="sm" asChild>
-                <Link href="/login">{t.start}</Link>
+                <Link href="/register">{t.start}</Link>
               </Button>
             </>
           )}

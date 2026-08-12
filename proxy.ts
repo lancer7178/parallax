@@ -11,7 +11,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Reachable without a session. `/` and `/ar` are the two language versions of
 // the marketing page, which renders for signed-in and signed-out visitors
 // alike — it just swaps its call to action.
-const PUBLIC_PATHS = ['/', '/ar', '/login']
+const PUBLIC_PATHS = ['/', '/ar', '/login', '/register', '/demo']
+
+// Pointless once signed in: both hand out a session the visitor already has.
+// `/demo` is *not* here — signing in as a different demo role is a reasonable
+// thing to do from inside the product.
+const SIGNED_OUT_ONLY = ['/login', '/register']
 
 function hasSessionCookie(request: NextRequest) {
   return (
@@ -32,8 +37,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(login)
   }
 
-  // Only the sign-in form is pointless once signed in; `/` is not.
-  if (signedIn && pathname === '/login') {
+  if (signedIn && SIGNED_OUT_ONLY.includes(pathname)) {
     return NextResponse.redirect(new URL('/', request.nextUrl))
   }
 

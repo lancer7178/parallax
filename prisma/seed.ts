@@ -427,6 +427,134 @@ async function main() {
     createdProjects[project.title] = created
   }
 
+  // --- Files ---------------------------------------------------------------
+  // References, not uploads (see `ProjectFile`). The URLs point at the real
+  // products these files would live in, so the rows behave like the genuine
+  // article — including the internal ones, which exist to demonstrate that
+  // `sharedWithClient: false` actually keeps a file out of the client's view.
+  const files: Record<
+    string,
+    {
+      name: string
+      url: string
+      version?: number
+      sharedWithClient?: boolean
+      uploadedById: string
+      createdAt: Date
+    }[]
+  > = {
+    'Helios Commerce Replatform': [
+      {
+        name: 'Checkout-flow-v3.fig',
+        url: 'https://www.figma.com/design/helios-checkout-v3',
+        version: 3,
+        uploadedById: sara.id,
+        createdAt: activityTime(2),
+      },
+      {
+        name: 'Storefront-templates.fig',
+        url: 'https://www.figma.com/design/helios-storefront',
+        version: 2,
+        uploadedById: sara.id,
+        createdAt: activityTime(11),
+      },
+      {
+        name: 'Catalog-API-contract.pdf',
+        url: 'https://drive.google.com/file/d/helios-catalog-api',
+        uploadedById: abdulatef.id,
+        createdAt: activityTime(18),
+      },
+      {
+        name: 'Migration-runbook.md',
+        url: 'https://www.notion.so/parallax/helios-migration-runbook',
+        sharedWithClient: false,
+        uploadedById: abdulatef.id,
+        createdAt: activityTime(5),
+      },
+    ],
+    'Northwind Design System': [
+      {
+        name: 'Component-library-rc.fig',
+        url: 'https://www.figma.com/design/northwind-components',
+        version: 4,
+        uploadedById: karim.id,
+        createdAt: activityTime(3),
+      },
+      {
+        name: 'Brand-guidelines.pdf',
+        url: 'https://drive.google.com/file/d/northwind-brand-guidelines',
+        version: 2,
+        uploadedById: sara.id,
+        createdAt: activityTime(9),
+      },
+      {
+        name: 'Icon-set.zip',
+        url: 'https://drive.google.com/file/d/northwind-icons',
+        uploadedById: karim.id,
+        createdAt: activityTime(4),
+      },
+    ],
+    'Atlas Trading Dashboard': [
+      {
+        name: 'Dashboard-layout-system.fig',
+        url: 'https://www.figma.com/design/atlas-dashboard-layout',
+        version: 2,
+        uploadedById: karim.id,
+        createdAt: activityTime(7),
+      },
+      {
+        name: 'Risk-alert-rules.xlsx',
+        url: 'https://drive.google.com/file/d/atlas-risk-rules',
+        uploadedById: lina.id,
+        createdAt: activityTime(3),
+      },
+      {
+        name: 'Latency-budget-notes.md',
+        url: 'https://www.notion.so/parallax/atlas-latency-budget',
+        sharedWithClient: false,
+        uploadedById: lina.id,
+        createdAt: activityTime(2),
+      },
+    ],
+    'Meridian Patient Portal': [
+      {
+        name: 'Portal-IA-map.pdf',
+        url: 'https://drive.google.com/file/d/meridian-ia-map',
+        uploadedById: sara.id,
+        createdAt: activityTime(14),
+      },
+      {
+        name: 'Accessibility-audit.pdf',
+        url: 'https://drive.google.com/file/d/meridian-a11y-audit',
+        uploadedById: lina.id,
+        createdAt: activityTime(6),
+      },
+    ],
+    'Helios Loyalty Campaign': [
+      {
+        name: 'Loyalty-microsite.fig',
+        url: 'https://www.figma.com/design/helios-loyalty-microsite',
+        version: 2,
+        uploadedById: sara.id,
+        createdAt: activityTime(8),
+      },
+      {
+        name: 'Launch-assets.zip',
+        url: 'https://drive.google.com/file/d/helios-loyalty-assets',
+        uploadedById: karim.id,
+        createdAt: activityTime(5),
+      },
+    ],
+  }
+
+  for (const [title, rows] of Object.entries(files)) {
+    const project = createdProjects[title]
+    if (!project) continue
+    await prisma.projectFile.createMany({
+      data: rows.map((row) => ({ ...row, projectId: project.id })),
+    })
+  }
+
   // --- Goals ---------------------------------------------------------------
   // Seeded once with the default target from GOAL_DEFS; admins can move these
   // from the dashboard afterward without the seed ever overwriting an edit.
@@ -485,6 +613,22 @@ async function main() {
         projectId: createdProjects['Helios Commerce Replatform']!.id,
         createdAt: activityTime(2),
       },
+      // Only shared files are logged — the internal runbook and latency notes
+      // seeded above deliberately have no entry here, matching `addProjectFile`.
+      {
+        type: ActivityType.FILE_ADDED,
+        message: 'sara ahmed added Checkout-flow-v3.fig.',
+        actorId: sara.id,
+        projectId: createdProjects['Helios Commerce Replatform']!.id,
+        createdAt: activityTime(2),
+      },
+      {
+        type: ActivityType.FILE_ADDED,
+        message: 'Karim Saleh added Component-library-rc.fig.',
+        actorId: karim.id,
+        projectId: createdProjects['Northwind Design System']!.id,
+        createdAt: activityTime(3),
+      },
       {
         type: ActivityType.APPROVAL_APPROVED,
         message: 'Helios Retail approved Homepage and category templates.',
@@ -521,6 +665,7 @@ async function main() {
     tasks: await prisma.task.count(),
     invoices: await prisma.invoice.count(),
     approvals: await prisma.approval.count(),
+    files: await prisma.projectFile.count(),
     goals: await prisma.goal.count(),
     activity: await prisma.activity.count(),
   }

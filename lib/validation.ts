@@ -6,6 +6,36 @@ export const loginSchema = z.object({
   password: z.string().min(1, { error: 'Password is required.' }),
 })
 
+const strongPassword = z
+  .string()
+  .min(8, { error: 'Password must be at least 8 characters.' })
+  .regex(/[a-zA-Z]/, { error: 'Password must contain a letter.' })
+  .regex(/[0-9]/, { error: 'Password must contain a number.' })
+
+/**
+ * Self-service sign-up. There is no `role` field on purpose: `register()`
+ * hard-codes `CLIENT`, so no amount of extra form data can promote the account
+ * that a public, unauthenticated endpoint creates.
+ */
+export const registerSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, { error: 'Name must be at least 2 characters.' })
+      .max(80),
+    email: z
+      .email({ error: 'Enter a valid email address.' })
+      .trim()
+      .toLowerCase(),
+    password: strongPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    path: ['confirmPassword'],
+    error: 'Both passwords must match.',
+  })
+
 const optionalText = z
   .string()
   .trim()
@@ -124,6 +154,37 @@ export const approvalDecisionSchema = z
     }
   )
 
+/**
+ * A file attached to a project. `url` is restricted to `http(s)` on purpose —
+ * the value is rendered as a link, so allowing `javascript:` or `data:` here
+ * would turn "attach a file" into stored XSS against everyone on the project.
+ */
+export const projectFileSchema = z.object({
+  projectId: z.uuid(),
+  name: z
+    .string()
+    .trim()
+    .min(3, { error: 'Give the file a name, including its extension.' })
+    .max(160),
+  url: z
+    .url({ error: 'Enter a valid link, starting with https://' })
+    .trim()
+    .max(2000)
+    .refine((value) => /^https?:\/\//i.test(value), {
+      error: 'Links must start with http:// or https://',
+    }),
+  version: z.coerce
+    .number({ error: 'Version must be a number.' })
+    .int()
+    .min(1, { error: 'Version starts at 1.' })
+    .max(999),
+  // An unchecked checkbox submits nothing at all, so absence means "internal".
+  sharedWithClient: z
+    .union([z.literal('on'), z.literal('')])
+    .optional()
+    .transform((value) => value === 'on'),
+})
+
 export const userSchema = z.object({
   name: z
     .string()
@@ -132,11 +193,7 @@ export const userSchema = z.object({
     .max(80),
   email: z.email({ error: 'Enter a valid email address.' }).trim().toLowerCase(),
   role: z.enum(Role),
-  password: z
-    .string()
-    .min(8, { error: 'Password must be at least 8 characters.' })
-    .regex(/[a-zA-Z]/, { error: 'Password must contain a letter.' })
-    .regex(/[0-9]/, { error: 'Password must contain a number.' }),
+  password: strongPassword,
 })
 
 /** Same as `userSchema`, but the password is only rotated when provided. */

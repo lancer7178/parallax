@@ -6,6 +6,7 @@ import {
   FolderPlusIcon,
   ListChecksIcon,
   MessageSquareWarningIcon,
+  PaperclipIcon,
   ReceiptIcon,
   SendIcon,
   ThumbsUpIcon,
@@ -26,6 +27,7 @@ const ACTIVITY_ICON: Record<ActivityType, LucideIcon> = {
   APPROVAL_REQUESTED: SendIcon,
   APPROVAL_APPROVED: ThumbsUpIcon,
   APPROVAL_CHANGES_REQUESTED: MessageSquareWarningIcon,
+  FILE_ADDED: PaperclipIcon,
 }
 
 const ACTIVITY_TONE: Record<ActivityType, string> = {
@@ -38,6 +40,7 @@ const ACTIVITY_TONE: Record<ActivityType, string> = {
   APPROVAL_REQUESTED: 'bg-primary/12 text-primary',
   APPROVAL_APPROVED: 'bg-success/15 text-success',
   APPROVAL_CHANGES_REQUESTED: 'bg-warning/18 text-warning',
+  FILE_ADDED: 'bg-primary/12 text-primary',
 }
 
 /**

@@ -171,6 +171,18 @@ const projectDetailSelect = {
     },
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
   },
+  files: {
+    select: {
+      id: true,
+      name: true,
+      url: true,
+      version: true,
+      sharedWithClient: true,
+      createdAt: true,
+      uploadedBy: { select: { id: true, name: true, avatarUrl: true } },
+    },
+    orderBy: [{ createdAt: 'desc' }],
+  },
 } satisfies Prisma.ProjectSelect
 
 type ProjectDetailRow = Prisma.ProjectGetPayload<{
@@ -186,6 +198,7 @@ export type ProjectDetail = ProjectDetailRow & {
 
 export type ProjectTask = ProjectDetailRow['tasks'][number]
 export type ProjectApproval = ProjectDetailRow['approvals'][number]
+export type ProjectFileRow = ProjectDetailRow['files'][number]
 
 /** Returns `null` when the project does not exist *or* is out of scope. */
 export async function getProject(
@@ -211,6 +224,13 @@ export async function getProject(
     // through a serialized prop even if a component forgets the check.
     invoices: seesMoney ? row.invoices : [],
     budget: seesMoney ? row.budget : null,
+    // Same treatment for working files: a client's payload contains only the
+    // files explicitly shared with them, so an internal draft cannot be read
+    // out of the serialized props even though the component never shows it.
+    files:
+      user.role === 'CLIENT'
+        ? row.files.filter((file) => file.sharedWithClient)
+        : row.files,
     progress,
     finance: seesMoney ? finance : null,
     health: projectHealth({
@@ -239,7 +259,40 @@ const CLIENT_SAFE_ACTIVITY = [
   'APPROVAL_REQUESTED',
   'APPROVAL_APPROVED',
   'APPROVAL_CHANGES_REQUESTED',
+  // Only logged for files that were shared with the client in the first place
+  // — see `addProjectFile` in `lib/actions/files.ts`.
+  'FILE_ADDED',
 ] as const satisfies readonly ActivityType[]
+
+/**
+ * Activity whose *message* quotes a figure — `logActivity` writes the amount
+ * into the sentence, so these rows are money even though the column isn't.
+ * Delivery roles never see them.
+ */
+const MONEY_ACTIVITY = [
+  'INVOICE_CREATED',
+  'INVOICE_PAID',
+] as const satisfies readonly ActivityType[]
+
+/**
+ * Which activity rows `user` is allowed to read, as a `where` fragment.
+ *
+ * Clients are additionally pinned to their own projects: `projectId: null`
+ * events (a teammate joining, for instance) belong to nobody's project and so
+ * are out of every client's scope by construction.
+ */
+function activityScope(user: SessionUser): Prisma.ActivityWhereInput {
+  if (user.role === 'CLIENT') {
+    return {
+      type: { in: [...CLIENT_SAFE_ACTIVITY] },
+      project: { clientId: user.id },
+    }
+  }
+  if (!canViewFinancials(user.role)) {
+    return { type: { notIn: [...MONEY_ACTIVITY] } }
+  }
+  return {}
+}
 
 /** The project's own slice of the activity log, newest first. */
 export async function listProjectActivity(
@@ -248,12 +301,10 @@ export async function listProjectActivity(
   limit = 12
 ) {
   return prisma.activity.findMany({
-    where: {
-      projectId,
-      ...(user.role === 'CLIENT'
-        ? { type: { in: [...CLIENT_SAFE_ACTIVITY] } }
-        : {}),
-    },
+    // `activityScope` carries the same money and client-safety rules the
+    // dashboard feed uses, so the project timeline cannot become the one
+    // surface where a designer reads an invoice amount.
+    where: { projectId, ...activityScope(user) },
     orderBy: { createdAt: 'desc' },
     take: limit,
     select: {
@@ -261,6 +312,7 @@ export async function listProjectActivity(
       type: true,
       message: true,
       createdAt: true,
+      project: { select: { id: true, title: true } },
       actor: { select: { id: true, name: true, avatarUrl: true } },
     },
   })
@@ -951,6 +1003,58 @@ export async function getAttentionItems(
   return items.sort((a, b) => severity[a.tone] - severity[b.tone])
 }
 
+/**
+ * How many things are waiting on the caller — the number on the top bar's
+ * bell, and nothing else.
+ *
+ * Counts only, so it stays cheap enough to run on every workspace page load:
+ * each branch is an indexed `count()`, and the expensive part of
+ * `getAttentionItems` (deriving project health across the whole book of work)
+ * is deliberately left out. The full list is fetched only when the panel is
+ * actually opened.
+ */
+export async function countAttention(user: SessionUser): Promise<number> {
+  const scope = projectScope(user)
+  const seesMoney = canViewProjectMoney(user.role)
+  const isClient = user.role === 'CLIENT'
+  const mine = user.role === 'ADMIN' ? {} : { assigneeId: user.id }
+
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+
+  const [invoices, approvals, changes, tasks] = await Promise.all([
+    seesMoney
+      ? prisma.invoice.count({
+          where: {
+            project: scope,
+            status: { in: ['PENDING', 'OVERDUE'] },
+            dueDate: { lt: todayStart },
+          },
+        })
+      : 0,
+    prisma.approval.count({ where: { status: 'PENDING', project: scope } }),
+    isClient
+      ? 0
+      : prisma.approval.count({
+          where: { status: 'CHANGES_REQUESTED', project: scope },
+        }),
+    isClient
+      ? 0
+      : prisma.task.count({
+          where: {
+            project: scope,
+            status: { not: 'DONE' },
+            dueDate: { lt: tomorrowStart },
+            ...mine,
+          },
+        }),
+  ])
+
+  return invoices + approvals + changes + tasks
+}
+
 // --- Global search ---------------------------------------------------------
 
 export type SearchResult = {
@@ -1081,8 +1185,17 @@ export async function searchWorkspace(
 
 // --- Activity feed ---------------------------------------------------------
 
-export async function listRecentActivity(limit = 8) {
+/**
+ * The workspace-wide feed, filtered to what the caller may read.
+ *
+ * The filter is not cosmetic. `logActivity` writes amounts into the message
+ * itself ("$4,500 invoice paid for Nova Website"), so an unscoped feed would
+ * hand agency revenue to a designer in plain prose — the one place money could
+ * still reach a role that is excluded from it everywhere else.
+ */
+export async function listRecentActivity(user: SessionUser, limit = 8) {
   return prisma.activity.findMany({
+    where: activityScope(user),
     orderBy: { createdAt: 'desc' },
     take: limit,
     select: {
@@ -1090,6 +1203,7 @@ export async function listRecentActivity(limit = 8) {
       type: true,
       message: true,
       createdAt: true,
+      project: { select: { id: true, title: true } },
       actor: { select: { id: true, name: true, avatarUrl: true } },
     },
   })

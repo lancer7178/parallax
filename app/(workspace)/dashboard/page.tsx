@@ -75,7 +75,7 @@ async function DashboardContent({ user }: { user: SessionUser }) {
       listProjects(user),
       getGoalProgress(user),
       getTeamWorkload(user),
-      listRecentActivity(),
+      listRecentActivity(user),
     ])
   const showMoney = canViewFinancials(user.role)
 

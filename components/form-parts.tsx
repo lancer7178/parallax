@@ -38,10 +38,17 @@ export function SubmitButton({
   )
 }
 
-export function FieldError({ messages }: { messages?: string[] }) {
+/** `id` is optional so a field can point `aria-describedby` at its error. */
+export function FieldError({
+  id,
+  messages,
+}: {
+  id?: string
+  messages?: string[]
+}) {
   if (!messages?.length) return null
   return (
-    <p className="text-xs text-destructive" role="alert">
+    <p id={id} className="text-xs text-destructive" role="alert">
       {messages[0]}
     </p>
   )
